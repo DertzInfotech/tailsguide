@@ -1,7 +1,12 @@
+"use client";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaw, faBars } from "@fortawesome/free-solid-svg-icons";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Header() {
+  const pathname = usePathname();
+
   return (
     <header className="bg-white shadow-md sticky top-0 z-100">
       <nav className="flex items-center md:justify-around justify-between gap-4 pt-2 pb-2 pr-5 pl-5">
@@ -10,16 +15,16 @@ export default function Header() {
           <span>tailsGuide</span>
         </div>
         <div className="hidden md:flex gap-6">
-          <a href="#dashboard" class="nav-link active">Dashboard</a>
-          <a href="#report" class="nav-link">Report</a>
-          <a href="#search" class="nav-link">Search</a>
-          <a href="#shelters" class="nav-link">Shelters</a>
-          <a href="#community" class="nav-link">Community</a>
-          <a href="#resources" class="nav-link">Resources</a>
-          <a id="signin" class="nav-link">Sign In</a>
-          <a id="signup" class="nav-link">Sign Up</a>
-          <a id="register-pet" href="#pet-registration" class="nav-link hidden">My Profile</a>
-          <a id="logout" class="nav-link hidden">Log Out</a>
+          <Link href="/" className={pathname === "/" ? "nav-link active" : "nav-link"}>Dashboard</Link>
+          <Link href="/report" className={pathname === "/report" ? "nav-link active" : "nav-link"}>Report</Link>
+          <Link href="/search" className={pathname === "/search" ? "nav-link active" : "nav-link"}>Search</Link>
+          <Link href="#shelters" className="nav-link">Shelters</Link>
+          <Link href="#community" className="nav-link">Community</Link>
+          <Link href="#resources" className="nav-link">Resources</Link>
+          <a id="signin" className="nav-link">Sign In</a>
+          <a id="signup" className="nav-link">Sign Up</a>
+          <a id="register-pet" href="#pet-registration" className="nav-link hidden">My Profile</a>
+          <a id="logout" className="nav-link hidden">Log Out</a>
         </div>
         <div className="flex md:hidden text-[21px] font-bold text-orange-primary">
           <i><FontAwesomeIcon icon={faBars} /></i>
