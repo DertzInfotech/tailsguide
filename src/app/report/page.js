@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from "react";
+import ImageDropzone from "../../components/UI/dropzone";
+import { useObjectDetection } from "../../utils/useObjectDetection";
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
   const [currentStep, setCurrentStep] = useState(0);
+  const [lostPetImage, setLostPetImage] = useState(null);
+  const [foundPetImage, setFoundPetImage] = useState(null);
+  const [lostPetDetection, setLostPetDetection] = useState(null);
+  const [foundPetDetection, setFoundPetDetection] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { detectAndClassify, modelLoaded, isLoading, error } = useObjectDetection();
 
   const handleTypeChange = (type) => {
     setReportType(type);
@@ -21,268 +29,429 @@ export default function ReportPage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('Form submitted');
+    const imageToSubmit = reportType === 'lost' ? lostPetImage : foundPetImage;
+    const detectionData = reportType === 'lost' ? lostPetDetection : foundPetDetection;
+
+    console.log('Form submitted with image:', imageToSubmit);
+    console.log('AI Detection data:', detectionData);
+  };
+
+  const runAIDetection = async (type) => {
+    const file = type === 'lost' ? lostPetImage : foundPetImage;
+    
+    if (!file) {
+      console.warn('No image selected');
+      return;
+    }
+
+    if (!modelLoaded) {
+      alert('AI model is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    setIsAnalyzing(true);
+
+    try {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = async (e) => {
+        img.onload = async () => {
+          const result = await detectAndClassify(img);
+
+          if (type === 'lost') {
+            setLostPetDetection(result);
+          } else {
+            setFoundPetDetection(result);
+          }
+
+          setIsAnalyzing(false);
+        };
+        img.src = e.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('AI detection error:', err);
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleLostImageSelect = (file) => {
+    setLostPetImage(file);
+    setLostPetDetection(null);
+  };
+
+  const handleFoundImageSelect = (file) => {
+    setFoundPetImage(file);
+    setFoundPetDetection(null);
+  };
+
+  const removeLostImage = () => {
+    setLostPetImage(null);
+    setLostPetDetection(null);
+  };
+
+  const removeFoundImage = () => {
+    setFoundPetImage(null);
+    setFoundPetDetection(null);
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 flex items-start md:items-center justify-center px-4 py-10">
-      <section
-        id="report"
-        className="w-full max-w-4xl bg-white rounded-2xl shadow-md md:shadow-lg px-5 py-8 md:px-10 md:py-10"
-      >
-        <header className="text-center mb-8 md:mb-10">
-          <p className="text-sm uppercase tracking-[0.2em] text-orange-primary mb-2">
-            Lost & Found
-          </p>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+    <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2">
             Report Lost or Found Pet
           </h1>
-          <p className="text-gray-500 text-sm md:text-base max-w-2xl mx-auto">
-            Help the community reunite pets with their families by sharing clear details and a recent photo.
+          <p className="text-gray-600">
+            Help reunite pets with their families
           </p>
-        </header>
+        </div>
+        {isLoading && (
+          <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-lg text-center">
+            🔄 Loading AI model...
+          </div>
+        )}
 
-        {/* Report type selector */}
-        <div className="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4 mb-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-center">
+            ❌ {error}
+          </div>
+        )}
+        <div className="flex gap-4 mb-8 justify-center">
           <button
-            className={`type-btn flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all border
-              ${
-                reportType === 'lost'
-                  ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-              }`}
             onClick={() => handleTypeChange('lost')}
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-            </svg>
-            <span>Lost Pet</span>
-          </button>
-
-          <button
-            className={`type-btn flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all border
-              ${
-                reportType === 'found'
-                  ? 'bg-orange-500 border-orange-500 text-white shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${reportType === 'lost'
+                ? 'bg-orange-primary text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
-            onClick={() => handleTypeChange('found')}
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-            <span>Found Pet</span>
+            Lost Pet
+          </button>
+          <button
+            onClick={() => handleTypeChange('found')}
+            className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${reportType === 'found'
+                ? 'bg-green-600 text-white shadow-lg'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+          >
+            Found Pet
           </button>
         </div>
 
         {/* Lost Pet Form */}
         {reportType === 'lost' && (
-          <div id="lost-pet-form" className="report-form">
-            {/* Progress */}
-            <div className="form-progress flex items-center justify-between gap-2 mb-8 text-xs md:text-sm">
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="flex items-center justify-between mb-8">
               {['Pet Details', 'Location & Date', 'Contact Info', 'Medical Info'].map(
                 (label, index) => (
-                  <div key={label} className="flex-1 flex items-center">
-                    <div
-                      className={`flex flex-col items-center gap-1 ${
-                        currentStep >= index
-                          ? 'text-orange-primary font-semibold'
-                          : 'text-gray-400'
+                  <div
+                    key={index}
+                    className={`flex items-center ${index <= currentStep
+                        ? 'text-orange-primary font-semibold'
+                        : 'text-gray-400'
                       }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 ${index <= currentStep
+                          ? 'bg-orange-50 border-orange-primary text-orange-secondary'
+                          : 'bg-gray-100 border-gray-300 text-gray-400'
+                        }`}
                     >
-                      <div
-                        className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full border text-xs md:text-sm
-                          ${
-                            currentStep >= index
-                              ? 'bg-orange-50 border-orange-primary text-orange-secondary'
-                              : 'bg-gray-100 border-gray-300 text-gray-400'
-                          }`}
-                      >
-                        {index + 1}
-                      </div>
-                      <span className="whitespace-nowrap">{label}</span>
+                      {index + 1}
                     </div>
+                    <span className="hidden sm:inline">{label}</span>
                     {index < 3 && (
-                      <div className="hidden md:block flex-1 h-px bg-gray-200 mx-2" />
+                      <div
+                        className={`h-0.5 w-8 mx-2 ${index < currentStep ? 'bg-orange-primary' : 'bg-gray-300'
+                          }`}
+                      />
                     )}
                   </div>
                 )
               )}
             </div>
 
-            <form className="pet-form" onSubmit={handleSubmit}>
-              {/* Step 1: Pet Details */}
-              {currentStep === 0 && (
-                <div className="form-step space-y-6">
-                  <h3 className="text-xl md:text-2xl font-bold text-gray-900">
-                    Pet Details
-                  </h3>
-
-                  <div className="photo-upload">
-                    <div className="upload-area border-2 border-dashed border-gray-300 rounded-xl p-6 md:p-8 text-center bg-gray-50">
-                      <svg
-                        className="w-10 h-10 md:w-12 md:h-12 mx-auto text-gray-400 mb-3"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                      </svg>
-                      <p className="text-gray-700 font-medium mb-1">
-                        Upload pet photo
-                      </p>
-                      <p className="text-gray-500 text-xs md:text-sm mb-3">
-                        Clear, well‑lit photos help more people recognize your pet.
-                      </p>
-                      <input
-                        type="file"
-                        id="lost-pet-image"
-                        accept="image/*"
-                        className="hidden"
-                        required
-                      />
+            {currentStep === 0 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Pet Details</h2>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Pet Photo 📸
+                  </label>
+                  <ImageDropzone
+                    onImageSelect={handleLostImageSelect}
+                    selectedImage={lostPetImage}
+                    removeImage={removeLostImage}
+                    onAIDetect={() => runAIDetection('lost')}
+                    isAnalyzing={isAnalyzing}
+                  />
+                  {isAnalyzing && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        <span className="text-blue-700 font-medium">
+                          🤖 AI is analyzing your image...
+                        </span>
+                      </div>
                     </div>
+                  )}
 
-                    <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                      <button
-                        type="button"
-                        className="flex-1 w-full px-4 py-2.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm font-medium flex items-center justify-center gap-2"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M13 3C9.23 3 6.19 5.95 6 9.66l-1.92 2.88c-.3.47-.48 1-.48 1.57V17c0 1.1.9 2 2 2h2v-4h8v4h2c1.1 0 2-.9 2-2v-2.89c0-.57-.18-1.1-.48-1.57L17.99 9.66C17.81 5.95 14.77 3 13 3z" />
-                        </svg>
-                        AI Breed Detection
-                      </button>
-
-                      <button
-                        type="button"
-                        className="flex-1 w-full px-4 py-2.5 bg-orange-primary text-white rounded-lg hover:bg-orange-secondary text-sm font-medium"
-                      >
-                        Remove Image
-                      </button>
+                  {lostPetDetection && !isAnalyzing && (
+                    <div
+                      className={`mt-4 p-4 rounded-lg border-2 ${lostPetDetection.detected
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-yellow-50 border-yellow-200'
+                        }`}
+                    >
+                      {lostPetDetection.detected ? (
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">✅</span>
+                            <span className="text-lg font-bold text-green-800">
+                              Pet Detected!
+                            </span>
+                          </div>
+                          <div className="space-y-1 text-green-700">
+                            <p>
+                              <strong>Type:</strong> {lostPetDetection.petType.toUpperCase()}
+                            </p>
+                            <p>
+                              <strong>Confidence:</strong> {lostPetDetection.confidence}%
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">⚠️</span>
+                            <span className="text-lg font-bold text-yellow-800">
+                              No Pet Detected
+                            </span>
+                          </div>
+                      )}
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  <div className="form-grid grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* inputs unchanged, just ensure consistent spacing classes */}
-                    {/* ... keep all your existing form-group blocks here ... */}
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label block mb-2 text-sm font-semibold text-gray-800">
-                      Distinctive Features
+                {/* Other form fields... */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Pet Name
                     </label>
-                    <textarea
-                      className="form-control w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-light focus:border-orange-light"
-                      id="lost-pet-distinctive-feature"
-                      rows={3}
-                      placeholder="Collar, markings, scars, behavior, etc."
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                      placeholder="Enter pet's name"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Pet Type {lostPetDetection?.detected && `(AI: ${lostPetDetection.petType})`}
+                    </label>
+                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent">
+                      <option value="">Select type</option>
+                      <option value="dog">Dog</option>
+                      <option value="cat">Cat</option>
+                      <option value="bird">Bird</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Breed
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                      placeholder="Enter breed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                      placeholder="e.g., 3 years"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Location & Date</h2>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Contact Info</h2>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">Medical Info</h2>
+              </div>
+            )}
+
+            <div className="flex justify-between mt-8">
+              {currentStep > 0 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+                >
+                  Previous
+                </button>
+              ) : (
+                <div></div>
+              )}
+
+              {currentStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-600 font-semibold"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-600 font-semibold"
+                >
+                  Submit Report
+                </button>
+              )}
+            </div>
+          </form>
+        )}
+
+        {reportType === 'found' && (
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Pet Photo 📸
+              </label>
+              <ImageDropzone
+                onImageSelect={handleFoundImageSelect}
+                selectedImage={foundPetImage}
+                removeImage={removeFoundImage}
+                onAIDetect={() => runAIDetection('found')}
+                isAnalyzing={isAnalyzing}
+              />
+
+              {isAnalyzing && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <span className="text-blue-700 font-medium">
+                      🤖 AI is analyzing your image...
+                    </span>
                   </div>
                 </div>
               )}
 
-              {/* Step 2, 3, 4: keep your fields, just wrap each step in `space-y-6` and ensure labels use text-sm and headings text-xl */}
-              {/* ... your existing JSX for steps 1–4, only adjusting spacing/typography classes similarly ... */}
+              {foundPetDetection && !isAnalyzing && (
+                <div
+                  className={`mt-4 p-4 rounded-lg border-2 ${foundPetDetection.detected
+                      ? 'bg-green-50 border-green-200'
+                      : 'bg-yellow-50 border-yellow-200'
+                    }`}
+                >
+                  {foundPetDetection.detected ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">✅</span>
+                        <span className="text-lg font-bold text-green-800">
+                          Pet Detected!
+                        </span>
+                      </div>
 
-              <div className="form-navigation flex items-center justify-between mt-8 pt-4 border-t border-gray-100">
-                {currentStep > 0 ? (
-                  <button
-                    type="button"
-                    className="px-5 py-2.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-800 hover:bg-gray-200"
-                    onClick={handlePrevStep}
-                  >
-                    Previous
-                  </button>
-                ) : (
-                  <span />
-                )}
-
-                {currentStep < 3 ? (
-                  <button
-                    type="button"
-                    className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-orange-primary text-white hover:bg-orange-secondary shadow-sm"
-                    onClick={handleNextStep}
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="px-6 py-2.5 rounded-lg text-sm font-semibold bg-orange-primary text-white hover:bg-orange-secondary shadow-sm"
-                  >
-                    Submit Report
-                  </button>
-                )}
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Found Pet Form */}
-        {reportType === 'found' && (
-          <div id="found-pet-form" className="report-form">
-            <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 text-center md:text-left">
-              Found Pet Report
-            </h3>
-
-            <form className="pet-form space-y-6" onSubmit={handleSubmit}>
-              <div className="photo-upload">
-                <div className="upload-area border-2 border-dashed border-gray-300 rounded-xl p-6 md:p-8 text-center bg-gray-50">
-                  <svg
-                    className="w-10 h-10 md:w-12 md:h-12 mx-auto text-gray-400 mb-3"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                  </svg>
-                  <p className="text-gray-700 font-medium mb-1">
-                    Upload photo of the found pet
-                  </p>
-                  <p className="text-gray-500 text-xs md:text-sm mb-3">
-                    A clear photo helps match with existing lost reports.
-                  </p>
-                  <input
-                    type="file"
-                    id="found-pet-image"
-                    accept="image/*"
-                    className="hidden"
-                    required
-                  />
+                      {foundPetDetection.breeds && foundPetDetection.breeds.length > 0 && (
+                        <div className="mt-3">
+                          <p className="font-semibold text-green-800 mb-2">🏷️ AI Breed Predictions:</p>
+                          <div className="space-y-2">
+                            {foundPetDetection.breeds.map((breed, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm bg-white rounded-lg p-2">
+                                <span className={idx === 0 ? 'font-semibold text-green-900' : 'text-green-700'}>
+                                  {idx + 1}. {breed.breed}
+                                </span>
+                                <span className={`${idx === 0 ? 'font-bold' : ''} text-green-600`}>
+                                  {breed.confidence}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-green-600 mt-2">
+                            💡 This information can help identify the owner!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">⚠️</span>
+                        <span className="text-lg font-bold text-yellow-800">
+                          No Pet Detected
+                        </span>
+                      </div>
+                        <p className="text-yellow-700 text-sm mb-2">
+                          The AI could not identify a pet in this image. Please upload a clear photo of a dog, cat, bird, rabbit, or other pet.
+                        </p>
+                        <p className="text-xs text-yellow-600">
+                          💡 Tip: Make sure the pet is clearly visible and well-lit in the photo.
+                      </p>
+                    </div>
+                  )}
                 </div>
+              )}
+            </div>
 
-                <div className="ai-matching mt-4">
-                  <button
-                    type="button"
-                    className="w-full px-4 py-2.5 bg-orange-primary text-white rounded-lg hover:bg-orange-secondary text-sm font-semibold flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M13 3C9.23 3 6.19 5.95 6 9.66l-1.92 2.88c-.3.47-.48 1-.48 1.57V17c0 1.1.9 2 2 2h2v-4h8v4h2c1.1 0 2-.9 2-2v-2.89c0-.57-.18-1.1-.48-1.57L17.99 9.66C17.81 5.95 14.77 3 13 3z" />
-                    </svg>
-                    AI Match Against Lost Pets
-                  </button>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Where did you find this pet?
+                </label>
+                <input
+                  type="text"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter location"
+                />
               </div>
 
-              {/* keep your existing found‑form fields, just ensure grid gap-4, labels text-sm, inputs text-sm, etc. */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Contact Number
+                </label>
+                <input
+                  type="tel"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
 
-              <button
-                type="submit"
-                className="w-full px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-secondary font-semibold text-sm md:text-base shadow-sm"
-              >
-                Submit Found Pet Report
-              </button>
-            </form>
-          </div>
+            <button
+              type="submit"
+              className="w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+            >
+              Submit Found Pet Report
+            </button>
+          </form>
         )}
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
