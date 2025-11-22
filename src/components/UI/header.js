@@ -21,7 +21,7 @@ export default function Header() {
           <Link href="#shelters" className="nav-link">Shelters</Link>
           <Link href="#community" className="nav-link">Community</Link>
           <Link href="#resources" className="nav-link">Resources</Link>
-          <a id="signin" className="nav-link">Sign In</a>
+          <Link href="/signin" className="nav-link active">Sign In</Link>
           <a id="signup" className="nav-link">Sign Up</a>
           <a id="register-pet" href="#pet-registration" className="nav-link hidden">My Profile</a>
           <a id="logout" className="nav-link hidden">Log Out</a>
