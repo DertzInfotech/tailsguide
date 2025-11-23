@@ -5,6 +5,7 @@ import { faAddressCard } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
 import Input from "@/components/UI/input";
 import { useState } from "react";
+import { signup } from "@/lib/api-client";
 
 export default function SignUp(){
 
@@ -14,6 +15,23 @@ export default function SignUp(){
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const userData = {
+        displayName: displayName,
+        userName: username,
+        mobileNumber: mobileNo,
+        email: email,
+        password: password,
+      }
+      const result = await signup(userData);
+    } catch (error) {
+      console.log("error");
+    }
+  }
 
 
   return (
@@ -39,7 +57,7 @@ export default function SignUp(){
             </div>
 
             {/* Login Elements */}
-            <form className="flex flex-col gap-2.5  md:grid md:grid-cols-2">
+            <form className="flex flex-col gap-2.5  md:grid md:grid-cols-2" onSubmit={handleSignUp}>
               <Input
                 id="displayname"
                 label="Display Name"
