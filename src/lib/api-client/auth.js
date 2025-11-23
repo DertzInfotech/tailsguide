@@ -34,7 +34,8 @@ export async function signin( userData ) {
         if(response.ok){
           console.log("User logged in successfully")
         }
-        return await response.json();
+        const result = await response.json();
+        return ({response, result});
   } catch (error) {
     console.log(error);
   }

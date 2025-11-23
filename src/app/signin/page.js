@@ -4,12 +4,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignIn } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
 import Input from "@/components/UI/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signin } from "@/lib/api-client";
+import Notification from "@/components/UI/notification";
 
 export default function SignIn() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [notification, setNotification] = useState(null);
 
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -20,11 +22,28 @@ export default function SignIn() {
         password: password,
       };
       const result = await signin(userData);
-      localStorage.setItem("tailsToken", result.token);
+      console.log(result);
+      if(result.response.ok){
+        localStorage.setItem("tailsToken", result.result.token);
+        showNotification("Logged in successfully!", 'success');
+      }
     } catch (error) {
       console.log("error");
     }
   };
+
+  const showNotification = ( message, type = 'info') => {
+    setNotification({ message, type });
+  }
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } 
+  }, [notification]);
 
   return (
     <>
@@ -75,6 +94,15 @@ export default function SignIn() {
             </form>
           </div>
         </div>
+
+        {/* Notification Render */}
+        {notification && (
+          <Notification 
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
       </div>
     </>
   );
