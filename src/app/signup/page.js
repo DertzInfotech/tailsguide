@@ -4,34 +4,52 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAddressCard } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
 import Input from "@/components/UI/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signup } from "@/lib/api-client";
 
 export default function SignUp(){
 
-  const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
+  const [notification, setNotification] = useState(null);
 
   const handleSignUp = async (e) => {
     e.preventDefault();
     
     try {
       const userData = {
-        displayName: displayName,
-        userName: username,
+        displayName: '',
+        userName: '',
         mobileNumber: mobileNo,
         email: email,
         password: password,
       }
       const result = await signup(userData);
+      if(result.response.ok){
+        localStorage.setItem("tailsToken", result.result.token);
+        showNotification("Logged in successfully!", 'success');
+      } else {
+        showNotification(result.result.validationErrors, 'error')
+      }
     } catch (error) {
       console.log("error");
     }
   }
+
+  const showNotification = ( message, type = 'info') => {
+    setNotification({ message, type });
+  }
+  
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    } 
+  }, [notification]);
 
 
   return (
@@ -58,20 +76,6 @@ export default function SignUp(){
 
             {/* Login Elements */}
             <form className="flex flex-col gap-2.5  md:grid md:grid-cols-2" onSubmit={handleSignUp}>
-              <Input
-                id="displayname"
-                label="Display Name"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-              />
-              <Input
-                id="username"
-                label="Username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
               <Input
                 id="password"
                 label="Password"
@@ -106,10 +110,17 @@ export default function SignUp(){
                 className="w-full mt-4 py-2 px-4 bg-orange-primary hover:bg-orange-secondary text-white font-semibold rounded-md shadow-md transition duration-150 col-span-2"
               >Sign In</button>
             </form>
-
           </div>
-
         </div>
+
+        {/* Notification Render */}
+        {notification && (
+          <Notification 
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
       </div>
     </>
   )

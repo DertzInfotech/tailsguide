@@ -9,7 +9,7 @@ import { signin } from "@/lib/api-client";
 import Notification from "@/components/UI/notification";
 
 export default function SignIn() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notification, setNotification] = useState(null);
 
@@ -18,14 +18,15 @@ export default function SignIn() {
 
     try {
       const userData = {
-        username: username,
+        username: email,
         password: password,
       };
       const result = await signin(userData);
-      console.log(result);
       if(result.response.ok){
         localStorage.setItem("tailsToken", result.result.token);
         showNotification("Logged in successfully!", 'success');
+      } else {
+        showNotification(result.data.error, 'error')
       }
     } catch (error) {
       console.log("error");
@@ -72,11 +73,11 @@ export default function SignIn() {
             {/* Login Elements */}
             <form className="flex flex-col gap-2.5" onSubmit={handleSignIn}>
               <Input
-                id="username"
-                label="Username"
+                id="email"
+                label="Email"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
               <Input
                 id="password"

@@ -13,7 +13,8 @@ export async function signup( userData ) {
         if(response.ok){
           console.log("User registered successfully")
         }
-        return await response.json();
+        const result = await response.json();
+        return ({response, result});
   } catch (error) {
     console.log(error);
   }
