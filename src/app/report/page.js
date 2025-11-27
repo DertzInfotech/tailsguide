@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect} from "react";
+import { useRouter } from "next/navigation";
 import ImageDropzone from "../../components/UI/dropzone";
 import { useObjectDetection } from "../../utils/useObjectDetection";
 import Input from "@/components/UI/input";
+import Notification from "@/components/UI/notification";
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
@@ -14,6 +16,8 @@ export default function ReportPage() {
   const [foundPetDetection, setFoundPetDetection] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { detectAndClassify, modelLoaded, isLoading, error } = useObjectDetection();
+  const [notification, setNotification] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [petName, setPetName] = useState('');
   const [petType, setPetType] = useState(lostPetDetection?.petType)
@@ -31,7 +35,15 @@ export default function ReportPage() {
   const [contactNo, setContactNo] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [emergencyNo, setEmergencyNo] = useState('');
-  
+  const [isSMSChecked, setIsSMSChecked] = useState(true);
+  const [isEmailChecked, setIsEmailChecked] = useState(true);
+  const [isSocialChecked, setIsSocialChecked] = useState(true);
+  const [isWPChecked, setIsWPChecked] = useState(true);
+  const [microchipID, setMicrochipId] = useState('');
+  const [veterinarian, setVeterinarian] = useState('');
+  const [medicalCondition, setMedicalCondition] = useState('')
+  const [specialInstructions, setSpecialInstructions] = useState('')
+  const router = useRouter();
 
   const handleTypeChange = (type) => {
     setReportType(type);
@@ -46,13 +58,69 @@ export default function ReportPage() {
     if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const imageToSubmit = reportType === 'lost' ? lostPetImage : foundPetImage;
     const detectionData = reportType === 'lost' ? lostPetDetection : foundPetDetection;
 
     console.log('Form submitted with image:', imageToSubmit);
     console.log('AI Detection data:', detectionData);
+
+    const formdata = new FormData();
+    const lostPetJSON = {
+      petName: petName,
+      breed: breed,
+      age: age,
+      gender: gender,
+      size: size,
+      primaryColor: primaryColor,
+      distinctiveFeatures: distinctiveFeature,
+      reportType: reportType.toUpperCase(),
+      lastSeenLocation: lastLocation,
+      lastSeenDate: lastSeenDate,
+      lastSeenTime: lastSeenTime,
+      circumstances: circumstances,
+      ownerName: contactName,
+      ownerPhone: contactNo,
+      ownerEmail: contactEmail,
+      emergencyContact: emergencyNo,
+      microchipId: microchipID,
+      medicalConditions: medicalCondition,
+      specialInstructions: specialInstructions,
+    };
+
+    if(reportType === 'lost'){
+      formdata.append('petDTO', new Blob([JSON.stringify(lostPetJSON)], { type: 'application/json' }));
+      formdata.append('photo', lostPetImage , lostPetImage.name);
+    }
+
+    const requestOptions = {
+      method: "POST",
+      body: formdata,
+      redirect: "follow"
+    };
+
+    try {
+      const response = await fetch(
+        "https://tailsguide-production-53f0.up.railway.app/api/v1/pet/report", requestOptions
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log("report submitted")
+        showNotification(`${reportType === 'lost' ? 'Lost' : 'Found'} pet report submitted successfully!`, 'success');
+        router.push('/')
+      }
+      console.log(formdata);
+    } catch (error) {
+      console.log("Pet Data Submission Failed", error);
+      showNotification("Pet Data Submission Failed", 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
+                    
   };
 
   const runAIDetection = async (type) => {
@@ -115,6 +183,19 @@ export default function ReportPage() {
     setFoundPetImage(null);
     setFoundPetDetection(null);
   };
+
+  const showNotification = ( message, type = 'info') => {
+      setNotification({ message, type });
+    }
+  
+    useEffect(() => {
+      if (notification) {
+        const timer = setTimeout(() => {
+          setNotification(null);
+        }, 5000);
+        return () => clearTimeout(timer);
+      } 
+    }, [notification]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
@@ -352,7 +433,7 @@ export default function ReportPage() {
                   
                   <div className="col-span-2">
                     <label
-                      className="block text-sm font-medium text-gray-500 mb-2"
+                      className="block text-sm font-medium text-gray-600 mb-2"
                     >
                       Distinctive Features
                     </label>
@@ -406,7 +487,7 @@ export default function ReportPage() {
                   </div>
                   <div className="col-span-2">
                     <label
-                      className="block text-sm font-medium text-gray-500 mb-2"
+                      className="block text-sm font-medium text-gray-600 mb-2"
                     >
                       Circumstances
                     </label>
@@ -438,19 +519,128 @@ export default function ReportPage() {
                         onChange={(e) => setContactName(e.target.value)}
                       />
                     </div>
+                    <div>
+                      <Input
+                        id="contactno"
+                        label="Contact Number"
+                        type="text"
+                        value={contactNo}
+                        onChange={(e) => setContactNo(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="contactemail"
+                        label="Contact Email"
+                        type="text"
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Input
+                        id="emergencyno"
+                        label="Emergency Number"
+                        type="text"
+                        value={emergencyNo}
+                        onChange={(e) => setEmergencyNo(e.target.value)}
+                      />
+                    </div>
+                    <div className="col-span-2 mb-5">
+                      <h4 className="text-xl font-semibold mb-5  mt-3 text-gray-700">Alert Preferences</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                        <label className="bg-gray-100 p-3 rounded-md"><input
+                          id="smspreference"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={isSMSChecked}
+                          onChange={(e) => setIsSMSChecked(e.target.checked)}
+                        />&nbsp;&nbsp;SMS Alert</label>
+                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                          id="emailpreference"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={isEmailChecked}
+                          onChange={(e) => setIsEmailChecked(e.target.checked)}
+                        />&nbsp;&nbsp;Email Notification</label>
+                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                          id="smspreference"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={isSocialChecked}
+                          onChange={(e) => setIsSocialChecked(e.target.checked)}
+                        />&nbsp;&nbsp;Social Media Sharing</label>
+                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                          id="smspreference"
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={isWPChecked}
+                          onChange={(e) => setIsWPChecked(e.target.checked)}
+                        />&nbsp;&nbsp;Community WhatsApp Groups</label>
+                      </div>
+                    </div>
                   </div>
               </div>
             )}
 
             {currentStep === 3 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Medical Info</h2>
+              <div>
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Medical Info</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                  <div>
+                    <Input
+                      id="microchipid"
+                      label="Microchip ID"
+                      type="text"
+                      value={microchipID}
+                      onChange={(e) => setMicrochipId(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="veterinarian"
+                      label="Veterinarian"
+                      type="text"
+                      value={veterinarian}
+                      onChange={(e) => setVeterinarian(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      className="block text-sm font-medium text-gray-600 mb-2"
+                    >
+                      Medical Conditions & Medications
+                    </label>
+                    <textarea 
+                      className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                      placeholder="Any ongoing medical conditions, required medications, allergies, etc."
+                      value={medicalCondition}
+                      onChange={(e) => setMedicalCondition(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      className="block text-sm font-medium text-gray-600 mb-2"
+                    >
+                      Special Instructions
+                    </label>
+                    <textarea 
+                      className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                      placeholder="Behavioral notes, approach instructions, etc."
+                      value={specialInstructions}
+                      onChange={(e) => setSpecialInstructions(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
             <div className="flex justify-between mt-8">
               {currentStep > 0 ? (
                 <button
+                  key="prev-button"
                   type="button"
                   onClick={handlePrevStep}
                   className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
@@ -463,6 +653,7 @@ export default function ReportPage() {
 
               {currentStep < 3 ? (
                 <button
+                  key="next-button"
                   type="button"
                   onClick={handleNextStep}
                   className="px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-600 font-semibold"
@@ -471,10 +662,17 @@ export default function ReportPage() {
                 </button>
               ) : (
                 <button
+                key="submit-button"
                   type="submit"
-                  className="px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-600 font-semibold"
+                  disabled={isSubmitting}
+                  className={`px-6 py-3 bg-orange-primary text-white rounded-lg active:bg-orange-light font-semibold 
+                    ${
+                    isSubmitting
+                      ? 'bg-orange-300 cursor-not-allowed'
+                      : 'hover:bg-orange-600'
+                  }`}
                 >
-                  Submit Report
+                  { isSubmitting ? 'Submitting...' : 'Submit Report'}
                 </button>
               )}
             </div>
@@ -590,14 +788,28 @@ export default function ReportPage() {
             </div>
 
             <button
+              key="submit-button"
               type="submit"
-              className="w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
+              disabled={isSubmitting}
+              className={`w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg active:bg-green-500 hover:bg-green-700 font-semibold ${
+                    isSubmitting
+                      ? 'bg-green-300 cursor-not-allowed'
+                      : 'hover:bg-green-600'
+                  }`}
             >
-              Submit Found Pet Report
+              {isSubmitting ? "Submitting..." : "Submit Found Pet Report"}
             </button>
           </form>
         )}
       </div>
+      {/* Notification Render */}
+      {notification && (
+        <Notification 
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </div>
   );
 }
