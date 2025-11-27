@@ -26,7 +26,7 @@ export default function Header() {
           <span>tailsGuide</span>
         </div>
         
-        <div className="hidden md:flex gap-6">
+        <div className="hidden lg:flex gap-6">
           <Link href="/" className={pathname === "/" ? "nav-link active" : "nav-link"}>Dashboard</Link>
           <Link href="/report" className={pathname === "/report" ? "nav-link active" : "nav-link"}>Report</Link>
           <Link href="/search" className={pathname === "/search" ? "nav-link active" : "nav-link"}>Search</Link>
@@ -34,7 +34,6 @@ export default function Header() {
           <Link href="#community" className="nav-link">Community</Link>
           <Link href="#resources" className="nav-link">Resources</Link>
           <Link href="/signin" className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
-          <Link href="/signup" className={pathname === "/signup" ? "nav-link active" : "nav-link"}>Sign Up</Link>
           <a id="register-pet" href="#pet-registration" className="nav-link hidden">My Profile</a>
           <a id="logout" className="nav-link hidden">Log Out</a>
         </div>

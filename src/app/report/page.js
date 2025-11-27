@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import ImageDropzone from "../../components/UI/dropzone";
 import { useObjectDetection } from "../../utils/useObjectDetection";
+import Input from "@/components/UI/input";
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
@@ -13,6 +14,24 @@ export default function ReportPage() {
   const [foundPetDetection, setFoundPetDetection] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { detectAndClassify, modelLoaded, isLoading, error } = useObjectDetection();
+
+  const [petName, setPetName] = useState('');
+  const [petType, setPetType] = useState(lostPetDetection?.petType)
+  const [breed, setBreed] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [size, setSize] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('');
+  const [distinctiveFeature, setDistinctiveFeature] = useState('');
+  const [lastLocation, setLastLocation] = useState('');
+  const [lastSeenDate, setLastSeenDate] = useState('');
+  const [lastSeenTime, setLastSeenTime] = useState('');
+  const [circumstances, setCircumstances] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactNo, setContactNo] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [emergencyNo, setEmergencyNo] = useState('');
+  
 
   const handleTypeChange = (type) => {
     setReportType(type);
@@ -235,64 +254,191 @@ export default function ReportPage() {
                 </div>
 
                 {/* Other form fields... */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pet Name
-                    </label>
-                    <input
+                    <Input
+                      id="petname"
+                      label="Enter pet's name"
                       type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
-                      placeholder="Enter pet's name"
+                      value={petName}
+                      onChange={(e) => setPetName(e.target.value)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
                       Pet Type {lostPetDetection?.detected && `(AI: ${lostPetDetection.petType})`}
                     </label>
-                    <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent">
-                      <option value="">Select type</option>
-                      <option value="dog">Dog</option>
-                      <option value="cat">Cat</option>
-                      <option value="bird">Bird</option>
-                      <option value="other">Other</option>
+                    <select 
+                      value={petType}
+                      onChange={(e) => setPetType(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                    >
+                      <option>Select type</option>
+                      <option>Dog</option>
+                      <option>Cat</option>
+                      <option>Bird</option>
+                      <option>Other</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Breed
-                    </label>
-                    <input
+                    <Input
+                      id="breed"
+                      label="Enter pet's breed"
                       type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
-                      placeholder="Enter breed"
+                      value={breed}
+                      onChange={(e) => setBreed(e.target.value)}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Age
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Pet Age
                     </label>
-                    <input
+                    <select 
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                    >
+                      <option>Select age</option>
+                      <option>Puppy (0-1 year)</option>
+                      <option>Young (1-3 years)</option>
+                      <option>Adult (3-7 years)</option>
+                      <option>Senior (7+ years)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Pet Gender
+                    </label>
+                    <select 
+                      value={gender}
+                      onChange={(e) => setGender(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                    >
+                      <option>Select gender</option>
+                      <option>Male</option>
+                      <option>Female</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Pet Size
+                    </label>
+                    <select 
+                      value={size}
+                      onChange={(e) => setSize(e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                    >
+                      <option>Select size</option>
+                      <option>Small</option>
+                      <option>Medium</option>
+                      <option>Large</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Input
+                      id="primarycolor"
+                      label="Primary Color"
                       type="text"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-primary focus:border-transparent"
-                      placeholder="e.g., 3 years"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label
+                      className="block text-sm font-medium text-gray-500 mb-2"
+                    >
+                      Distinctive Features
+                    </label>
+                    <textarea 
+                      className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                      placeholder="Collar, markings, scars, behavior, etc."
+                      value={distinctiveFeature}
+                      onChange={(e) => setDistinctiveFeature(e.target.value)}
                     />
                   </div>
                 </div>
               </div>
             )}
+            
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Location & Date</h2>
+              <div>
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Location & Date</h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                  <div>
+                    <Input
+                      id="lastlocation"
+                      label="Enter Last Seen Location"
+                      type="text"
+                      value={lastLocation}
+                      onChange={(e) => setLastLocation(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="lastseendate"
+                      label="Enter Last Seen Date"
+                      type="date"
+                      value={lastSeenDate}
+                      onChange={(e) => setLastSeenDate(e.target.value)}
+                      className="hide-date-time"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="lastseentime"
+                      label="Enter Last Seen Time"
+                      type="time"
+                      value={lastSeenTime}
+                      onChange={(e) => setLastSeenTime(e.target.value)}
+                      className="hide-date-time"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label
+                      className="block text-sm font-medium text-gray-500 mb-2"
+                    >
+                      Circumstances
+                    </label>
+                    <textarea 
+                      className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                      placeholder="How did your pet go missing? What were they doing?"
+                      value={circumstances}
+                      onChange={(e) => setCircumstances(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
+              
             )}
 
             {currentStep === 2 && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Contact Info</h2>
+              <div>
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Contact Info</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                  <div>
+                      <Input
+                        id="contactname"
+                        label="Your Name"
+                        type="text"
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                      />
+                    </div>
+                  </div>
               </div>
             )}
 

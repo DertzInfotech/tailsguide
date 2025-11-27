@@ -75,7 +75,7 @@ export default function SignUp(){
             </div>
 
             {/* Login Elements */}
-            <form className="flex flex-col gap-2.5  md:grid md:grid-cols-2" onSubmit={handleSignUp}>
+            <form className="flex flex-col gap-5  md:grid md:grid-cols-2" onSubmit={handleSignUp}>
               <Input
                 id="password"
                 label="Password"

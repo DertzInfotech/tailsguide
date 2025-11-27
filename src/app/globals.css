@@ -40,7 +40,18 @@
 @layer utilities {
   .animate-slideInRight {
     animation: slideInRight 0.3s ease-out forwards;
+  }
 }
+
+@layer utilities {
+  .hide-date-time:required:invalid::-webkit-datetime-edit {
+    color: transparent;
+  }
+
+  .hide-date-time:focus::-webkit-datetime-edit,
+  .hide-date-time:valid::-webkit-datetime-edit {
+    color: #171717;
+  }
 }
 
 body {

@@ -1,7 +1,12 @@
 import { faTimes } from "@fortawesome/free-solid-svg-icons"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Drawer({ isDrawerOpen, onClose }) {
+
+  const pathname = usePathname();
+  
   return (
     <>
       {/* OverLay */}
@@ -32,16 +37,16 @@ export default function Drawer({ isDrawerOpen, onClose }) {
           </div>
 
           <div className="flex flex-col gap-3">
-            <a href="#dashboard" class="nav-link active">Dashboard</a>
-            <a href="#report" class="nav-link">Report</a>
-            <a href="#search" class="nav-link">Search</a>
-            <a href="#shelters" class="nav-link">Shelters</a>
-            <a href="#community" class="nav-link">Community</a>
-            <a href="#resources" class="nav-link">Resources</a>
-            <a id="signin" class="nav-link">Sign In</a>
-            <a id="signup" class="nav-link">Sign Up</a>
-            <a id="register-pet" href="#pet-registration" class="nav-link hidden">My Profile</a>
-            <a id="logout" class="nav-link hidden">Log Out</a>
+            <Link href="/" className={pathname === "/" ? "nav-link active" : "nav-link"}>Dashboard</Link>
+            <Link href="/report" className={pathname === "/report" ? "nav-link active" : "nav-link"}>Report</Link>
+            <Link href="/search" className={pathname === "/search" ? "nav-link active" : "nav-link"}>Search</Link>
+            <Link href="#shelters" className="nav-link">Shelters</Link>
+            <Link href="#community" className="nav-link">Community</Link>
+            <Link href="#resources" className="nav-link">Resources</Link>
+            <Link href="/signin" className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
+            <Link href="/signup" className={pathname === "/signup" ? "nav-link active" : "nav-link"}>Sign Up</Link>
+            <a id="register-pet" href="#pet-registration" className="nav-link hidden">My Profile</a>
+            <a id="logout" className="nav-link hidden">Log Out</a>
           </div>
 
         </div>

@@ -8,6 +8,8 @@ export default function Input ({
   type = 'text',
   value,
   onchange,
+  className,
+  icon,
   ...props
 }) {
 
@@ -26,7 +28,7 @@ export default function Input ({
           value={value}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="border-none appearance-none bg-gray-200 p-3 rounded-md w-64 outline-none text-sm"
+          className={`border-none appearance-none bg-gray-100 p-3 rounded-md w-full min-w-64 outline-none text-sm ${className || ''}`}
           {...props}
         />
 
@@ -40,6 +42,7 @@ export default function Input ({
             }
           `}
         >
+          {icon && <i>{icon}</i>}
           {label}
         </label>
       </div>
