@@ -6,6 +6,7 @@ import ImageDropzone from "../../components/UI/dropzone";
 import { useObjectDetection } from "../../utils/useObjectDetection";
 import Input from "@/components/UI/input";
 import Notification from "@/components/UI/notification";
+import { submitReport } from "@/lib/api-client";
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
@@ -41,9 +42,18 @@ export default function ReportPage() {
   const [isWPChecked, setIsWPChecked] = useState(true);
   const [microchipID, setMicrochipId] = useState('');
   const [veterinarian, setVeterinarian] = useState('');
-  const [medicalCondition, setMedicalCondition] = useState('')
-  const [specialInstructions, setSpecialInstructions] = useState('')
+  const [medicalCondition, setMedicalCondition] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
   const router = useRouter();
+
+  const [foundLocation, setFoundLocation] = useState('');
+  const [foundDate, setFoundDate] = useState('');
+  const [petCondition, setPetCondition] = useState('');
+  const [petDescription, setPetDescription] = useState('');
+  const [foundersName, setFoundersName] = useState('');
+  const [foundersPhoneNO, setFoundersPhoneNo] = useState('');
+  const [foundersEmail, setFoundersEmail] = useState('');
+  const [careArrangement, setCareArrangement] = useState('');
 
   const handleTypeChange = (type) => {
     setReportType(type);
@@ -90,9 +100,36 @@ export default function ReportPage() {
       specialInstructions: specialInstructions,
     };
 
+    const foundPetJSON = { 
+      petName: null,
+      breed:  null,
+      age: null,
+      gender: null,
+      size: null,
+      primaryColor: null,
+      distinctiveFeatures: distinctiveFeature,
+      reportType: reportType.toUpperCase(),
+      lastSeenLocation: foundLocation,
+      lastSeenDate: foundDate,
+      lastSeenTime: null,
+      circumstances: circumstances,
+      ownerName: foundersName,
+      ownerPhone: foundersPhoneNO,
+      ownerEmail: foundersEmail,
+      emergencyContact: null,
+      microchipId: null,
+      medicalConditions: null,
+      specialInstructions: specialInstructions,
+    };
+
     if(reportType === 'lost'){
       formdata.append('petDTO', new Blob([JSON.stringify(lostPetJSON)], { type: 'application/json' }));
       formdata.append('photo', lostPetImage , lostPetImage.name);
+    }
+
+    if(reportType === 'found'){
+      formdata.append('petDTO', new Blob([JSON.stringify(foundPetJSON)], { type: 'application/json' }));
+      formdata.append('photo', foundPetImage , foundPetImage.name);
     }
 
     const requestOptions = {
@@ -102,16 +139,17 @@ export default function ReportPage() {
     };
 
     try {
-      const response = await fetch(
-        "https://tailsguide-production-53f0.up.railway.app/api/v1/pet/report", requestOptions
-      );
 
-      const result = await response.json();
+      const result = await submitReport(requestOptions);
 
-      if (response.ok) {
+      if (result.response.ok) {
         console.log("report submitted")
         showNotification(`${reportType === 'lost' ? 'Lost' : 'Found'} pet report submitted successfully!`, 'success');
-        router.push('/')
+        setTimeout(() => {
+          router.push('/');
+        }, 2000)
+      } else {
+        showNotification(result.result.validationErrors, 'error');
       }
       console.log(formdata);
     } catch (error) {
@@ -119,8 +157,7 @@ export default function ReportPage() {
       showNotification("Pet Data Submission Failed", 'error')
     } finally {
       setIsSubmitting(false)
-    }
-                    
+    }                  
   };
 
   const runAIDetection = async (type) => {
@@ -335,7 +372,7 @@ export default function ReportPage() {
                 </div>
 
                 {/* Other form fields... */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-10">
                   <div>
                     <Input
                       id="petname"
@@ -763,28 +800,103 @@ export default function ReportPage() {
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-10">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Where did you find this pet?
-                </label>
-                <input
+                <Input
+                  id="foundpetlocation"
+                  label="Where did you found the pet?"
                   type="text"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter location"
+                  value={foundLocation}
+                  onChange={(e) => setFoundLocation(e.target.value)}
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Contact Number
-                </label>
-                <input
-                  type="tel"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter phone number"
+                <Input
+                  id="foundpetdate"
+                  label="Date Found"
+                  type="date"
+                  value={foundDate}
+                  onChange={(e) => setFoundDate(e.target.value)}
+                  className="hide-date-time"
+                  required
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-2">
+                  Pet Condition
+                </label>
+                <select 
+                  value={petCondition}
+                  onChange={(e) => setPetCondition(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
+                >
+                  <option>Select Condition</option>
+                  <option>Excellent Health</option>
+                  <option>Good Health</option>
+                  <option>Injured/Needs Care</option>
+                  <option>Critical Condition</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label
+                  className="block text-sm font-medium text-gray-600 mb-2"
+                >
+                  Pet Description
+                </label>
+                <textarea 
+                  className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                  placeholder="Breed, size, color, distinctive features, behavior..."
+                  value={petDescription}
+                  onChange={(e) => setPetDescription(e.target.value)}
+                />
+              </div>
+              <div className="col-span-2">
+                <label
+                  className="block text-sm font-medium text-gray-600 mb-2"
+                >
+                  Current Care Arrangements
+                </label>
+                <textarea 
+                  className="w-full h-20 bg-gray-100 rounded-lg p-2"
+                  placeholder="Where is the pet now? Can you provide temporary care?"
+                  value={careArrangement}
+                  onChange={(e) => setCareArrangement(e.target.value)}
+                />
+              </div>
+              <div className="col-span-2 mb-5">
+                <h4 className="text-xl font-semibold mb-2  mt-3 text-gray-600">Your Contact Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                  <div>
+                    <Input
+                      id="foundercontactname"
+                      label="Your Name"
+                      type="text"
+                      value={foundersName}
+                      onChange={(e) => setFoundersName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="founderphone"
+                      label="Your Phone Number"
+                      type="text"
+                      value={foundersPhoneNO}
+                      onChange={(e) => setFoundersPhoneNo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="foundersemail"
+                      label="Your Email"
+                      type="text"
+                      value={foundersEmail}
+                      onChange={(e) => setFoundersEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+              </div>
+              
             </div>
 
             <button

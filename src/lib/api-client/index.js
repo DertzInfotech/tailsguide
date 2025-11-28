@@ -4,3 +4,4 @@ export async function fetchPets() {
 }
 
 export * from './auth';
+export * from './report'
