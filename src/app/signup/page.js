@@ -5,6 +5,7 @@ import { faAddressCard } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
 import Input from "@/components/UI/input";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { signup } from "@/lib/api-client";
 
 export default function SignUp(){
@@ -14,6 +15,7 @@ export default function SignUp(){
   const [mobileNo, setMobileNo] = useState('');
   const [email, setEmail] = useState('');
   const [notification, setNotification] = useState(null);
+  const router = useRouter();
 
   const handleSignUp = async (e) => {
     e.preventDefault();
@@ -30,6 +32,7 @@ export default function SignUp(){
       if(result.response.ok){
         localStorage.setItem("tailsToken", result.result.token);
         showNotification("Logged in successfully!", 'success');
+        router.push('./signin')
       } else {
         showNotification(result.result.validationErrors, 'error')
       }

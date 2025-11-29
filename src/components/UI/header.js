@@ -3,14 +3,23 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPaw, faBars } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 import Drawer from "./drawer";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export default function Header() {
 
+  const { isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  }
 
   const toggleDrawer = () => {
     setIsDrawerOpen(!isDrawerOpen);
@@ -33,9 +42,21 @@ export default function Header() {
           <Link href="#shelters" className="nav-link">Shelters</Link>
           <Link href="#community" className="nav-link">Community</Link>
           <Link href="#resources" className="nav-link">Resources</Link>
-          <Link href="/signin" className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
-          <a id="register-pet" href="#pet-registration" className="nav-link hidden">My Profile</a>
-          <a id="logout" className="nav-link hidden">Log Out</a>
+          {/* Conditional Rendering */}
+          {isAuthenticated ? (
+            <>
+              <Link href="/profile" className={pathname === "/profile" ? "nav-link active" : "nav-link"}>Profile</Link>
+              <button
+                onClick={handleLogout}
+                className="nav-link"
+              >
+                Log Out
+              </button>
+            </>
+          ) : (
+            <Link href="/signin" className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
+          )
+        }
         </div>
 
         {/* NavIcons */}

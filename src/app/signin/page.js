@@ -9,11 +9,14 @@ import { signin } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
 import Notification from "@/components/UI/notification";
 import Image from "next/image";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignIn() {
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [notification, setNotification] = useState(null);
+  const { login } = useAuth();
 
   const router = useRouter();
 
@@ -29,6 +32,8 @@ export default function SignIn() {
       if(result.response.ok){
         localStorage.setItem("tailsToken", result.result.token);
         showNotification("Logged in successfully!", 'success');
+        const token = result.result.token;
+        login(token);
         setTimeout(() => {
           router.push('/');
         }, 2000)
