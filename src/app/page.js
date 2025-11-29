@@ -1,8 +1,19 @@
+'use client'
+
+import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { heroStatsInfo, mainTilesInfo, sectionHeadersInfo, statsCardsInfo } from "./info";
 import Link from "next/link";
+import PetList from "@/components/UI/petList";
+import StoryList from "@/components/UI/storyList";
+import { usePets } from "@/lib/api-client";
+import { faBell, faTrophy  } from "@fortawesome/free-solid-svg-icons";
 
 export default function Home() {
+
+  const [page, setPage] = useState(0);
+  const { pets, currentPage, totalPages, loading } = usePets(page);
+
   return (
     <main className="min-h-screen bg-linear-to-br from-orange-primary to-orange-light">
       {/* Hero Section */}
@@ -67,7 +78,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           {/* Section Headers */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-12">
-            {sectionHeadersInfo.map((header, index) => (
+            {/* {sectionHeadersInfo.map((header, index) => (
               <div key={index} className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
                 <div className="flex items-center gap-4">
                   {header.customIcon || (
@@ -77,8 +88,34 @@ export default function Home() {
                     {header.title}
                   </h2>
                 </div>
+                <PetList />
               </div>
-            ))}
+            ))} */}
+            <div className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
+              <div className="flex items-center gap-4 mb-5">
+                <FontAwesomeIcon icon={faBell} className="text-orange-primary text-3xl" />
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Active Alerts
+                </h2>
+              </div>
+              <PetList 
+                pets={pets}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                loading={loading}
+                onPageChange={setPage}
+              />
+            </div>
+            <div className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
+              <div className="flex items-center gap-4 mb-5">
+                <FontAwesomeIcon icon={faTrophy} className="text-orange-primary text-3xl" />
+                <h2 className="text-2xl font-bold text-gray-800">
+                  Recent Success Stories
+                </h2>
+              </div>
+              <StoryList count={pets.length} />
+            </div>
+            
           </div>
 
           {/* Stats Cards Grid */}
