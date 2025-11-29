@@ -39,9 +39,9 @@ export default function Header() {
           <Link href="/" className={pathname === "/" ? "nav-link active" : "nav-link"}>Dashboard</Link>
           <Link href="/report" className={pathname === "/report" ? "nav-link active" : "nav-link"}>Report</Link>
           <Link href="/search" className={pathname === "/search" ? "nav-link active" : "nav-link"}>Search</Link>
-          <Link href="#shelters" className="nav-link">Shelters</Link>
-          <Link href="#community" className="nav-link">Community</Link>
-          <Link href="#resources" className="nav-link">Resources</Link>
+          <Link href="/shelters" className={pathname === "/shelters" ? "nav-link active" : "nav-link"}>Shelters</Link>
+          <Link href="/community" className={pathname === "/community" ? "nav-link active" : "nav-link"}>Community</Link>
+          <Link href="/resources" className={pathname === "/resources" ? "nav-link active" : "nav-link"}>Resources</Link>
           {/* Conditional Rendering */}
           {isAuthenticated ? (
             <>
