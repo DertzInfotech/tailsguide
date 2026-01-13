@@ -10,6 +10,13 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  --color-orange-primary: #FF6B35;
+  --color-orange-secondary: #FF8C42;
+  --color-orange-light: #FFA366;
+  --color-orange-lighter: #FFD4B8;
+  --color-orange-lightest: #FFF2EC;
+  --color-orange-dark: #D84315;
 }
 
 @media (prefers-color-scheme: light) {
@@ -23,4 +30,23 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* .nav-link {
+  text-decoration: none;
+  color: var(--gray-700);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: var(--border-radius);
+  transition: var(--transition);
+  white-space: nowrap;
+} */
+
+@layer components {
+  .nav-link {
+    @apply text-gray-700 font-medium text-sm pt-2 pb-2 pl-4 pr-4 rounded-md transition-all whitespace-nowrap;
+  };
+  .nav-link:hover, .nav-link.active {
+    @apply text-orange-primary bg-orange-lightest;
+  }
 }
