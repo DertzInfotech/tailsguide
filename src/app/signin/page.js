@@ -3,11 +3,11 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignIn, faKey, faEnvelope } from "@fortawesome/free-solid-svg-icons";
 import Link from "next/link";
-import Input from "@/components/UI/input";
+import Input from "@/shared/Input";
 import { useState, useEffect } from "react";
 import { signin } from "@/lib/api-client";
 import { useRouter } from "next/navigation";
-import Notification from "@/components/UI/notification";
+import Notification from "@/shared/Notification";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 
@@ -17,6 +17,9 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [notification, setNotification] = useState(null);
   const { login } = useAuth();
+  const handleGoogleLogin = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
+  };
 
   const router = useRouter();
 
@@ -29,7 +32,7 @@ export default function SignIn() {
         password: password,
       };
       const result = await signin(userData);
-      if(result.response.ok){
+      if (result.response.ok) {
         localStorage.setItem("tailsToken", result.result.token);
         showNotification("Logged in successfully!", 'success');
         const token = result.result.token;
@@ -45,7 +48,7 @@ export default function SignIn() {
     }
   };
 
-  const showNotification = ( message, type = 'info') => {
+  const showNotification = (message, type = 'info') => {
     setNotification({ message, type });
   }
 
@@ -55,90 +58,134 @@ export default function SignIn() {
         setNotification(null);
       }, 5000);
       return () => clearTimeout(timer);
-    } 
+    }
   }, [notification]);
 
   return (
-    <>
-      <div className="relative flex-1">
-        <div className="absolute inset-0 z-0">
-          <Image  
-            src='/images/dog_img1.jpg'
-            alt="Dog_Image"
-            fill
-            style={{ objectFit: "cover"}}
-        />
-        </div>
-        <div className="relative z-10 flex items-center justify-end w-full">
-          <div className="flex flex-col items-center max-w-400px min-h-1/2 bg-white rounded-md m-5 mr-20 p-20 shadow-xl/20">
-            {/* logo */}
-            <div className="flex items-center justify-center mb-1">
-              <div className="flex items-center gap-1 text-[43px] font-bold text-orange-primary pt-0.5">
-                {/* <i className="text-3xl">
-                  <FontAwesomeIcon icon={faSignIn} />
-                </i> */}
-                <span>Welcome Back!</span>
-              </div>
+    <div className="relative min-h-screen flex items-center justify-center bg-[#f7f3ee] overflow-hidden">
+
+      {/* Background image */}
+      <Image
+        src="/images/pet_signinn.png"
+        alt="Pets background"
+        fill
+        className="object-cover"
+        priority
+      />
+
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/40" />
+
+      {/* Centered glass card */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-6">
+        <div className="rounded-2xl bg-white/25 backdrop-blur-2xl
+                shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+                border border-white/10 p-8">
+
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+              Welcome back 👋
+            </h1>
+            <p className="mt-2 text-sm text-gray-750">
+              Sign in to continue helping pets find their way home.
+            </p>
+          </div>
+
+          {/* Form */}
+          <form className="space-y-4" onSubmit={handleSignIn}>
+            <Input
+              id="email"
+              label="Email"
+              icon={<FontAwesomeIcon icon={faEnvelope} />}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full"
+            />
+
+            <Input
+              id="password"
+              label="Password"
+              icon={<FontAwesomeIcon icon={faKey} />}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full"
+            />
+
+            {/* Forgot password */}
+            <div className="text-right">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-gray-750 hover:text-orange-primary"
+              >
+                Forgot password?
+              </Link>
             </div>
 
-            <div className="w-80 mb-7">
-              <p className="text-center text-gray-500 text-sm">
-                Log in to register your pet. Let's continue making every paw matter.
-              </p>
-            </div>
+            {/* Submit */}
+            <button
+              type="submit"
+              className="w-full mt-2 py-3 rounded-xl
+             bg-green-500 hover:bg-green-600
+             text-white font-semibold
+             active:scale-[0.98]
+             transition-all shadow-lg"
+            >
+              Sign In
+            </button>
 
-            {/* Login Main Section */}
-            <div className="flex flex-col gap-4">
-              
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full py-3 rounded-xl border border-gray-300 bg-white
+             flex items-center justify-center gap-3
+             hover:bg-gray-50 transition shadow-sm"
+            >
+              <img src="/google.svg" alt="Google" className="w-5 h-5" />
+              <span className="text-sm font-medium text-gray-700">
+                Continue with Google
+              </span>
+            </button>
 
-              {/* Login Elements */}
-              <form className="flex flex-col gap-2.5" onSubmit={handleSignIn}>
-                <Input
-                  id="email"
-                  label="  Email"
-                  icon={<FontAwesomeIcon icon={faEnvelope}/>}
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="min-w-80"
-                />
-                <Input
-                  id="password"
-                  label=" Password"
-                  icon={<FontAwesomeIcon icon={faKey}/>}
-                  type="text"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-80"
-                />
-                <button
-                  type="submit"
-                  className="w-full mt-4 py-2 px-4 bg-orange-primary hover:bg-orange-secondary active:bg-orange-light text-white font-semibold rounded-md shadow-md transition duration-150"
-                >
-                  Sign In
-                </button>
-              </form>
+          </form>
 
-              {/* Redirection Text */}
-              <div className="flex items-center justify-center mt-6">
-                <span className="text-sm text-gray-500">New to tailsGuide?</span>
-                <span className="text-sm text-cyan-500">
-                  <Link href="/signup">&nbsp;Sign Up</Link>
-                </span>
-              </div>
-            </div>
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-gray-400">OR</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          {/* Secondary action */}
+          <div className="text-center text-sm text-gray-650">
+            New to tailsGuide?
+            <Link
+              href="/signup"
+              className="ml-1 font-semibold text-orange-primary hover:underline"
+            >
+              Create an account
+            </Link>
+          </div>
+
+          {/* Trust line */}
+          <div className="mt-6 text-center text-xs text-gray-650">
+            🔒 Secure login · Your data is always protected
           </div>
         </div>
-
-        {/* Notification Render */}
-        {notification && (
-          <Notification 
-            message={notification.message}
-            type={notification.type}
-            onClose={() => setNotification(null)}
-          />
-        )}
       </div>
-    </>
+
+      {/* Notification */}
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
+    </div>
   );
+
 }

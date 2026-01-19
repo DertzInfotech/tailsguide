@@ -15,7 +15,7 @@ export default function SearchPage() {
       <section id="search" className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
-          <p className="text-sm uppercase tracking-[0.2em] text-orange-500 mb-2">
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-500 mb-2">
             Find & Reunite
           </p>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">

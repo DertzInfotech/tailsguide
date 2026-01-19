@@ -1,10 +1,35 @@
 :root {
-  --background: #fff;
-  --foreground: #111;
+  --background: #F2EEE9;   /* warm fabric canvas */
+  --foreground: #3A2E2A;   /* warm readable text */
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}
+/* --- Premium warm background animations --- */
+
+@keyframes fabricDrift {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes grainBreath {
+  0% {
+    opacity: 0.025;
+  }
+  50% {
+    opacity: 0.045;
+  }
+  100% {
+    opacity: 0.025;
+  }
 }

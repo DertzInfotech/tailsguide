@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect} from "react";
+import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import ImageDropzone from "../../components/UI/dropzone";
-import { useObjectDetection } from "../../utils/useObjectDetection";
-import Input from "@/components/UI/input";
-import Notification from "@/components/UI/notification";
+import ImageDropzone from "@/features/ai/ImageDropzone";
+import Input from "@/shared/Input";
+import Notification from "@/shared/Notification";
 import { submitReport } from "@/lib/api-client";
 
 export default function ReportPage() {
@@ -16,12 +16,12 @@ export default function ReportPage() {
   const [lostPetDetection, setLostPetDetection] = useState(null);
   const [foundPetDetection, setFoundPetDetection] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const { detectAndClassify, modelLoaded, isLoading, error } = useObjectDetection();
+  const AIDetection = dynamic(() => import("@/features/ai/AIDetection"), { ssr: false });
+  const [enableAI, setEnableAI] = useState(false);
   const [notification, setNotification] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [petName, setPetName] = useState('');
-  const [petType, setPetType] = useState(lostPetDetection?.petType)
+  const [petType, setPetType] = useState('');
   const [breed, setBreed] = useState('');
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
@@ -100,9 +100,9 @@ export default function ReportPage() {
       specialInstructions: specialInstructions,
     };
 
-    const foundPetJSON = { 
+    const foundPetJSON = {
       petName: null,
-      breed:  null,
+      breed: null,
       age: null,
       gender: null,
       size: null,
@@ -122,14 +122,14 @@ export default function ReportPage() {
       specialInstructions: specialInstructions,
     };
 
-    if(reportType === 'lost'){
+    if (reportType === 'lost') {
       formdata.append('petDTO', new Blob([JSON.stringify(lostPetJSON)], { type: 'application/json' }));
-      formdata.append('photo', lostPetImage , lostPetImage.name);
+      formdata.append('photo', lostPetImage, lostPetImage.name);
     }
 
-    if(reportType === 'found'){
+    if (reportType === 'found') {
       formdata.append('petDTO', new Blob([JSON.stringify(foundPetJSON)], { type: 'application/json' }));
-      formdata.append('photo', foundPetImage , foundPetImage.name);
+      formdata.append('photo', foundPetImage, foundPetImage.name);
     }
 
     const requestOptions = {
@@ -157,19 +157,14 @@ export default function ReportPage() {
       showNotification("Pet Data Submission Failed", 'error')
     } finally {
       setIsSubmitting(false)
-    }                  
+    }
   };
 
   const runAIDetection = async (type) => {
     const file = type === 'lost' ? lostPetImage : foundPetImage;
-    
+
     if (!file) {
       console.warn('No image selected');
-      return;
-    }
-
-    if (!modelLoaded) {
-      alert('AI model is still loading. Please wait a moment and try again.');
       return;
     }
 
@@ -221,18 +216,18 @@ export default function ReportPage() {
     setFoundPetDetection(null);
   };
 
-  const showNotification = ( message, type = 'info') => {
-      setNotification({ message, type });
+  const showNotification = (message, type = 'info') => {
+    setNotification({ message, type });
+  }
+
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  
-    useEffect(() => {
-      if (notification) {
-        const timer = setTimeout(() => {
-          setNotification(null);
-        }, 5000);
-        return () => clearTimeout(timer);
-      } 
-    }, [notification]);
+  }, [notification]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
@@ -245,23 +240,15 @@ export default function ReportPage() {
             Help reunite pets with their families
           </p>
         </div>
-        {isLoading && (
-          <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-lg text-center">
-            🔄 Loading AI model...
-          </div>
-        )}
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg text-center">
-            ❌ {error}
-          </div>
-        )}
+
+
         <div className="flex gap-4 mb-8 justify-center">
           <button
             onClick={() => handleTypeChange('lost')}
             className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${reportType === 'lost'
-                ? 'bg-orange-primary text-white shadow-lg'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+              ? 'bg-red-500 text-white shadow-lg'
+              : 'bg-white text-gray-800 hover:bg-gray-50'
               }`}
           >
             Lost Pet
@@ -269,8 +256,8 @@ export default function ReportPage() {
           <button
             onClick={() => handleTypeChange('found')}
             className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${reportType === 'found'
-                ? 'bg-green-600 text-white shadow-lg'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
+              ? 'bg-green-600 text-white shadow-lg'
+              : 'bg-white text-gray-800 hover:bg-gray-50'
               }`}
           >
             Found Pet
@@ -279,21 +266,22 @@ export default function ReportPage() {
 
         {/* Lost Pet Form */}
         {reportType === 'lost' && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+            <form className="bg-white rounded-2xl shadow-xl p-8"
+            onSubmit={(e) => e.preventDefault()}>
             <div className="flex items-center justify-between mb-8">
               {['Pet Details', 'Location & Date', 'Contact Info', 'Medical Info'].map(
                 (label, index) => (
                   <div
                     key={index}
                     className={`flex items-center ${index <= currentStep
-                        ? 'text-orange-primary font-semibold'
-                        : 'text-gray-400'
+                      ? 'text-orange-primary font-semibold'
+                      : 'text-gray-400'
                       }`}
                   >
                     <div
                       className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 ${index <= currentStep
-                          ? 'bg-orange-50 border-orange-primary text-orange-secondary'
-                          : 'bg-gray-100 border-gray-300 text-gray-400'
+                        ? 'bg-orange-50 border-orange-primary text-orange-secondary'
+                        : 'bg-gray-100 border-gray-300 text-gray-400'
                         }`}
                     >
                       {index + 1}
@@ -321,9 +309,19 @@ export default function ReportPage() {
                     onImageSelect={handleLostImageSelect}
                     selectedImage={lostPetImage}
                     removeImage={removeLostImage}
-                    onAIDetect={() => runAIDetection('lost')}
+                    onAIDetect={() => setEnableAI(true)}
                     isAnalyzing={isAnalyzing}
                   />
+                  {enableAI && reportType === 'lost' && (
+                    <AIDetection
+                      file={lostPetImage}
+                      onResult={(result) => {
+                        setLostPetDetection(result);
+                        setPetType(result?.petType || '');
+                        setEnableAI(false);
+                      }}
+                    />
+                  )}
                   {isAnalyzing && (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -338,8 +336,8 @@ export default function ReportPage() {
                   {lostPetDetection && !isAnalyzing && (
                     <div
                       className={`mt-4 p-4 rounded-lg border-2 ${lostPetDetection.detected
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-yellow-50 border-yellow-200'
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-yellow-50 border-yellow-200'
                         }`}
                     >
                       {lostPetDetection.detected ? (
@@ -360,12 +358,12 @@ export default function ReportPage() {
                           </div>
                         </div>
                       ) : (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-2xl">⚠️</span>
-                            <span className="text-lg font-bold text-yellow-800">
-                              No Pet Detected
-                            </span>
-                          </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-2xl">⚠️</span>
+                          <span className="text-lg font-bold text-yellow-800">
+                            No Pet Detected
+                          </span>
+                        </div>
                       )}
                     </div>
                   )}
@@ -387,7 +385,7 @@ export default function ReportPage() {
                     <label className="block text-sm font-medium text-gray-500 mb-2">
                       Pet Type {lostPetDetection?.detected && `(AI: ${lostPetDetection.petType})`}
                     </label>
-                    <select 
+                    <select
                       value={petType}
                       onChange={(e) => setPetType(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
@@ -414,7 +412,7 @@ export default function ReportPage() {
                     <label className="block text-sm font-medium text-gray-500 mb-2">
                       Pet Age
                     </label>
-                    <select 
+                    <select
                       value={age}
                       onChange={(e) => setAge(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
@@ -431,7 +429,7 @@ export default function ReportPage() {
                     <label className="block text-sm font-medium text-gray-500 mb-2">
                       Pet Gender
                     </label>
-                    <select 
+                    <select
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
@@ -446,7 +444,7 @@ export default function ReportPage() {
                     <label className="block text-sm font-medium text-gray-500 mb-2">
                       Pet Size
                     </label>
-                    <select 
+                    <select
                       value={size}
                       onChange={(e) => setSize(e.target.value)}
                       className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
@@ -467,14 +465,14 @@ export default function ReportPage() {
                       onChange={(e) => setPrimaryColor(e.target.value)}
                     />
                   </div>
-                  
+
                   <div className="col-span-2">
                     <label
                       className="block text-sm font-medium text-gray-600 mb-2"
                     >
                       Distinctive Features
                     </label>
-                    <textarea 
+                    <textarea
                       className="w-full h-20 bg-gray-100 rounded-lg p-2"
                       placeholder="Collar, markings, scars, behavior, etc."
                       value={distinctiveFeature}
@@ -484,7 +482,7 @@ export default function ReportPage() {
                 </div>
               </div>
             )}
-            
+
             {currentStep === 1 && (
               <div>
                 <div className="space-y-6">
@@ -528,7 +526,7 @@ export default function ReportPage() {
                     >
                       Circumstances
                     </label>
-                    <textarea 
+                    <textarea
                       className="w-full h-20 bg-gray-100 rounded-lg p-2"
                       placeholder="How did your pet go missing? What were they doing?"
                       value={circumstances}
@@ -537,7 +535,7 @@ export default function ReportPage() {
                   </div>
                 </div>
               </div>
-              
+
             )}
 
             {currentStep === 2 && (
@@ -548,75 +546,75 @@ export default function ReportPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <div>
-                      <Input
-                        id="contactname"
-                        label="Your Name"
-                        type="text"
-                        value={contactName}
-                        onChange={(e) => setContactName(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="contactno"
-                        label="Contact Number"
-                        type="text"
-                        value={contactNo}
-                        onChange={(e) => setContactNo(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="contactemail"
-                        label="Contact Email"
-                        type="text"
-                        value={contactEmail}
-                        onChange={(e) => setContactEmail(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Input
-                        id="emergencyno"
-                        label="Emergency Number"
-                        type="text"
-                        value={emergencyNo}
-                        onChange={(e) => setEmergencyNo(e.target.value)}
-                      />
-                    </div>
-                    <div className="col-span-2 mb-5">
-                      <h4 className="text-xl font-semibold mb-5  mt-3 text-gray-700">Alert Preferences</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-                        <label className="bg-gray-100 p-3 rounded-md"><input
-                          id="smspreference"
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={isSMSChecked}
-                          onChange={(e) => setIsSMSChecked(e.target.checked)}
-                        />&nbsp;&nbsp;SMS Alert</label>
-                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
-                          id="emailpreference"
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={isEmailChecked}
-                          onChange={(e) => setIsEmailChecked(e.target.checked)}
-                        />&nbsp;&nbsp;Email Notification</label>
-                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
-                          id="smspreference"
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={isSocialChecked}
-                          onChange={(e) => setIsSocialChecked(e.target.checked)}
-                        />&nbsp;&nbsp;Social Media Sharing</label>
-                        <label className="w-full bg-gray-100 p-3 rounded-md"><input
-                          id="smspreference"
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={isWPChecked}
-                          onChange={(e) => setIsWPChecked(e.target.checked)}
-                        />&nbsp;&nbsp;Community WhatsApp Groups</label>
-                      </div>
+                    <Input
+                      id="contactname"
+                      label="Your Name"
+                      type="text"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="contactno"
+                      label="Contact Number"
+                      type="text"
+                      value={contactNo}
+                      onChange={(e) => setContactNo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="contactemail"
+                      label="Contact Email"
+                      type="text"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      id="emergencyno"
+                      label="Emergency Number"
+                      type="text"
+                      value={emergencyNo}
+                      onChange={(e) => setEmergencyNo(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-2 mb-5">
+                    <h4 className="text-xl font-semibold mb-5  mt-3 text-gray-700">Alert Preferences</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+                      <label className="bg-gray-100 p-3 rounded-md"><input
+                        id="smspreference"
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={isSMSChecked}
+                        onChange={(e) => setIsSMSChecked(e.target.checked)}
+                      />&nbsp;&nbsp;SMS Alert</label>
+                      <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                        id="emailpreference"
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={isEmailChecked}
+                        onChange={(e) => setIsEmailChecked(e.target.checked)}
+                      />&nbsp;&nbsp;Email Notification</label>
+                      <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                        id="smspreference"
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={isSocialChecked}
+                        onChange={(e) => setIsSocialChecked(e.target.checked)}
+                      />&nbsp;&nbsp;Social Media Sharing</label>
+                      <label className="w-full bg-gray-100 p-3 rounded-md"><input
+                        id="smspreference"
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={isWPChecked}
+                        onChange={(e) => setIsWPChecked(e.target.checked)}
+                      />&nbsp;&nbsp;Community WhatsApp Groups</label>
                     </div>
                   </div>
+                </div>
               </div>
             )}
 
@@ -650,7 +648,7 @@ export default function ReportPage() {
                     >
                       Medical Conditions & Medications
                     </label>
-                    <textarea 
+                    <textarea
                       className="w-full h-20 bg-gray-100 rounded-lg p-2"
                       placeholder="Any ongoing medical conditions, required medications, allergies, etc."
                       value={medicalCondition}
@@ -663,7 +661,7 @@ export default function ReportPage() {
                     >
                       Special Instructions
                     </label>
-                    <textarea 
+                    <textarea
                       className="w-full h-20 bg-gray-100 rounded-lg p-2"
                       placeholder="Behavioral notes, approach instructions, etc."
                       value={specialInstructions}
@@ -674,47 +672,50 @@ export default function ReportPage() {
               </div>
             )}
 
-            <div className="flex justify-between mt-8">
-              {currentStep > 0 ? (
-                <button
-                  key="prev-button"
-                  type="button"
-                  onClick={handlePrevStep}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
-                >
-                  Previous
-                </button>
-              ) : (
-                <div></div>
-              )}
+{/* Step Actions */}
+<div className="flex justify-between items-center mt-10">
 
-              {currentStep < 3 ? (
-                <button
-                  key="next-button"
-                  type="button"
-                  onClick={handleNextStep}
-                  className="px-6 py-3 bg-orange-primary text-white rounded-lg hover:bg-orange-600 font-semibold"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                key="submit-button"
-                  type="submit"
-                  disabled={isSubmitting}
-                  className={`px-6 py-3 bg-orange-primary text-white rounded-lg active:bg-orange-light font-semibold 
-                    ${
-                    isSubmitting
-                      ? 'bg-orange-300 cursor-not-allowed'
-                      : 'hover:bg-orange-600'
-                  }`}
-                >
-                  { isSubmitting ? 'Submitting...' : 'Submit Report'}
-                </button>
-              )}
-            </div>
+  {/* Previous — show only after step 0 */}
+  {currentStep > 0 ? (
+    <button
+      type="button" 
+      onClick={handlePrevStep}
+      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+    >
+      Previous
+    </button>
+  ) : (
+    <div /> // keeps spacing
+  )}
+
+  {/* Next OR Submit */}
+  {currentStep < 3 ? (
+    <button
+      type="button" 
+      onClick={handleNextStep}
+      className="px-8 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-semibold"
+    >
+      Next
+    </button>
+  ) : (
+<button
+  type="button"            // ⛔ NOT submit
+  onClick={handleSubmit}   // ✅ submit ONLY when clicked
+  disabled={isSubmitting}
+  className={`px-8 py-3 bg-red-500 text-white rounded-lg font-semibold
+  ${isSubmitting ? 'bg-red-300 cursor-not-allowed' : 'hover:bg-red-600'}
+`}
+>
+  {isSubmitting ? 'Submitting...' : 'Submit Lost Pet Report'}
+</button>
+
+  )}
+
+</div>
+
           </form>
         )}
+        
 
         {reportType === 'found' && (
           <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
@@ -728,10 +729,18 @@ export default function ReportPage() {
                 onImageSelect={handleFoundImageSelect}
                 selectedImage={foundPetImage}
                 removeImage={removeFoundImage}
-                onAIDetect={() => runAIDetection('found')}
+                onAIDetect={() => setEnableAI(true)}
                 isAnalyzing={isAnalyzing}
               />
-
+              {enableAI && reportType === 'found' && (
+                <AIDetection
+                  file={foundPetImage}
+                  onResult={(result) => {
+                    setFoundPetDetection(result);
+                    setEnableAI(false);
+                  }}
+                />
+              )}
               {isAnalyzing && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-3">
@@ -746,8 +755,8 @@ export default function ReportPage() {
               {foundPetDetection && !isAnalyzing && (
                 <div
                   className={`mt-4 p-4 rounded-lg border-2 ${foundPetDetection.detected
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-yellow-50 border-yellow-200'
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-yellow-50 border-yellow-200'
                     }`}
                 >
                   {foundPetDetection.detected ? (
@@ -788,11 +797,11 @@ export default function ReportPage() {
                           No Pet Detected
                         </span>
                       </div>
-                        <p className="text-yellow-700 text-sm mb-2">
-                          The AI could not identify a pet in this image. Please upload a clear photo of a dog, cat, bird, rabbit, or other pet.
-                        </p>
-                        <p className="text-xs text-yellow-600">
-                          💡 Tip: Make sure the pet is clearly visible and well-lit in the photo.
+                      <p className="text-yellow-700 text-sm mb-2">
+                        The AI could not identify a pet in this image. Please upload a clear photo of a dog, cat, bird, rabbit, or other pet.
+                      </p>
+                      <p className="text-xs text-yellow-600">
+                        💡 Tip: Make sure the pet is clearly visible and well-lit in the photo.
                       </p>
                     </div>
                   )}
@@ -825,7 +834,7 @@ export default function ReportPage() {
                 <label className="block text-sm font-medium text-gray-500 mb-2">
                   Pet Condition
                 </label>
-                <select 
+                <select
                   value={petCondition}
                   onChange={(e) => setPetCondition(e.target.value)}
                   className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md focus:ring-2 focus:ring-orange-primary focus:border-transparent"
@@ -843,7 +852,7 @@ export default function ReportPage() {
                 >
                   Pet Description
                 </label>
-                <textarea 
+                <textarea
                   className="w-full h-20 bg-gray-100 rounded-lg p-2"
                   placeholder="Breed, size, color, distinctive features, behavior..."
                   value={petDescription}
@@ -856,7 +865,7 @@ export default function ReportPage() {
                 >
                   Current Care Arrangements
                 </label>
-                <textarea 
+                <textarea
                   className="w-full h-20 bg-gray-100 rounded-lg p-2"
                   placeholder="Where is the pet now? Can you provide temporary care?"
                   value={careArrangement}
@@ -894,20 +903,19 @@ export default function ReportPage() {
                     />
                   </div>
                 </div>
-                
+
               </div>
-              
+
             </div>
 
             <button
               key="submit-button"
               type="submit"
               disabled={isSubmitting}
-              className={`w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg active:bg-green-500 hover:bg-green-700 font-semibold ${
-                    isSubmitting
-                      ? 'bg-green-300 cursor-not-allowed'
-                      : 'hover:bg-green-600'
-                  }`}
+              className={`w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg active:bg-green-500 hover:bg-green-700 font-semibold ${isSubmitting
+                ? 'bg-green-300 cursor-not-allowed'
+                : 'hover:bg-green-600'
+                }`}
             >
               {isSubmitting ? "Submitting..." : "Submit Found Pet Report"}
             </button>
@@ -916,7 +924,7 @@ export default function ReportPage() {
       </div>
       {/* Notification Render */}
       {notification && (
-        <Notification 
+        <Notification
           message={notification.message}
           type={notification.type}
           onClose={() => setNotification(null)}

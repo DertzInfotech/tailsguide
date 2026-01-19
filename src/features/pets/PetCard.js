@@ -1,36 +1,9 @@
 'use client'
 
-import { useState, useEffect } from "react";
-
-export default function PetCard({ pet }) {
+export default function PetCard({ pet, imageUrl }) {
   const daysMissing = Math.floor(
     (new Date() - new Date(pet.lastSeenDate)) / (1000 * 60 * 60 * 24)
   );
-
-  const [img, setImg] = useState();
-
-  useEffect(() => {
-    const fetchThumbnail = async () => {
-      try {
-        const response = await fetch(`https://tailsguide-production-53f0.up.railway.app/api/v1/pet/${pet.id}/thumbnail`);
-        const thumbnail = await response.blob();
-        const imageurl = URL.createObjectURL(thumbnail);
-        setImg(imageurl);
-      } catch (error) {
-        console.log("Error getting thumbnail", error);
-      }
-    };
-
-    if(pet.id) {
-      fetchThumbnail();
-    }
-
-    return () => {
-      if (img) {
-        URL.revokeObjectURL(img);
-      }
-    }
-  }, [pet.id]);
 
   return (
     <div
@@ -40,11 +13,11 @@ export default function PetCard({ pet }) {
       `}
     >
       {/* Thumbnail */}
-      <img
-        src={img}
-        alt={pet.petName}
-        className="w-20 h-20 rounded-md object-cover"
-      />
+     <img
+  src={imageUrl || "/placeholder-pet.png"}
+  alt={pet.petName || "Pet"}
+  className="w-20 h-20 rounded-md object-cover"
+/>
 
       {/* Info Section */}
       <div className="flex-1">

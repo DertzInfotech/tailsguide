@@ -2,13 +2,14 @@
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAddressCard } from "@fortawesome/free-solid-svg-icons";
+import Image from "next/image";
 import Link from "next/link";
-import Input from "@/components/UI/input";
+import Input from "@/shared/Input";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signup } from "@/lib/api-client";
 
-export default function SignUp(){
+export default function SignUp() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -16,10 +17,14 @@ export default function SignUp(){
   const [email, setEmail] = useState('');
   const [notification, setNotification] = useState(null);
   const router = useRouter();
+  const handleGoogleLogin = () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
+  };
+
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    
+
     try {
       const userData = {
         displayName: '',
@@ -29,7 +34,7 @@ export default function SignUp(){
         password: password,
       }
       const result = await signup(userData);
-      if(result.response.ok){
+      if (result.response.ok) {
         localStorage.setItem("tailsToken", result.result.token);
         showNotification("Logged in successfully!", 'success');
         router.push('./signin')
@@ -41,90 +46,140 @@ export default function SignUp(){
     }
   }
 
-  const showNotification = ( message, type = 'info') => {
+  const showNotification = (message, type = 'info') => {
     setNotification({ message, type });
   }
-  
+
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
       }, 5000);
       return () => clearTimeout(timer);
-    } 
+    }
   }, [notification]);
 
 
   return (
-    <>
-      <div className="flex items-center justify-center w-full h-full">
-        <div className="flex flex-col items-center max-w-400px min-h-1/2 border-2 border-amber-200 m-20 p-8">
-          
-          {/* logo */}
-          <div className="flex items-center justify-center mt-6 mb-10">
-            <div className="flex items-center gap-1 text-2xl font-bold text-orange-primary pt-0.5">
-              <i className="text-3xl"><FontAwesomeIcon icon={faAddressCard} /></i>
-              <span>Sign Up</span>
-            </div>
+    <div className="relative min-h-screen flex items-center justify-center bg-[#f7f3ee] overflow-hidden">
+
+      {/* Background image */}
+      <Image
+        src="/images/pet_signup.png"
+        alt="Pets background"
+        fill
+        className="object-cover"
+        priority
+      />
+
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-black/40" />
+
+      {/* Centered glass card */}
+      <div className="relative z-10 w-full max-w-md mx-auto px-6">
+        <div className="rounded-2xl bg-white/25 backdrop-blur-2xl
+                shadow-[0_20px_60px_rgba(0,0,0,0.25)]
+                border border-white/10 p-8">
+
+          {/* Header */}
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+              Create account ✨
+            </h1>
+            <p className="mt-2 text-sm text-gray-750">
+              Join tailsGuide and help pets find their way home.
+            </p>
           </div>
 
-          {/* Login Main Section */}
-          <div className="flex flex-col gap-4">
+          {/* Form */}
+          <form className="space-y-4" onSubmit={handleSignUp}>
 
-            {/* Redirection Text */}
-            <div className="flex items-center justify-center">
-              <span className="text-sm text-gray-500">Already have an accound?</span>
-              <span className="text-sm text-cyan-500"><Link href="/signin">&nbsp;Sign In</Link></span>
-            </div>
+            <Input
+              id="email"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
-            {/* Login Elements */}
-            <form className="flex flex-col gap-5  md:grid md:grid-cols-2" onSubmit={handleSignUp}>
-              <Input
-                id="password"
-                label="Password"
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <Input
-                id="confirmpassword"
-                label="Confirm Password"
-                type="text"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-              <Input
-                id="mobileno"
-                label="Mobile Number"
-                type="text"
-                value={mobileNo}
-                onChange={(e) => setMobileNo(e.target.value)}
-              />
-              <Input
-                id="email"
-                label="Email"
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              
-              <button
-                type="submit"
-                className="w-full mt-4 py-2 px-4 bg-orange-primary hover:bg-orange-secondary text-white font-semibold rounded-md shadow-md transition duration-150 col-span-2"
-              >Sign In</button>
-            </form>
+            <Input
+              id="mobileno"
+              label="Mobile Number"
+              type="text"
+              value={mobileNo}
+              onChange={(e) => setMobileNo(e.target.value)}
+            />
+
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <Input
+              id="confirmpassword"
+              label="Confirm Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="w-full mt-2 py-3 rounded-xl
+             bg-green-500 hover:bg-green-600
+             text-white font-semibold
+             active:scale-[0.98]
+             transition-all shadow-lg"
+            >
+              Sign Up
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-gray-400">OR</span>
+            <div className="h-px flex-1 bg-gray-200" />
           </div>
+
+          {/* Google login (UI only for now) */}
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full py-3 rounded-xl border border-gray-300 bg-white
+             flex items-center justify-center gap-3
+             hover:bg-gray-50 transition shadow-sm"
+          >
+            <img src="/google.svg" alt="Google" className="w-5 h-5" />
+            <span className="text-sm font-medium text-gray-700">
+              Continue with Google
+            </span>
+          </button>
+
+
+          {/* Redirect */}
+          <div className="mt-6 text-center text-sm text-gray-650">
+            Already have an account?
+            <Link href="/signin" className="ml-1 font-semibold text-orange-primary hover:underline">
+              Sign In
+            </Link>
+          </div>
+
         </div>
-
-        {/* Notification Render */}
-        {notification && (
-          <Notification 
-            message={notification.message}
-            type={notification.type}
-            onClose={() => setNotification(null)}
-          />
-        )}
       </div>
-    </>
-  )
+
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+    </div>
+  );
+
 }

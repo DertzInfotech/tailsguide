@@ -1,137 +1,119 @@
 'use client'
 
-import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { heroStatsInfo, mainTilesInfo, sectionHeadersInfo, statsCardsInfo } from "./info";
-import Link from "next/link";
-import PetList from "@/components/UI/petList";
-import StoryList from "@/components/UI/storyList";
+import { useState, useCallback } from "react";
 import { usePets } from "@/lib/api-client";
-import { faBell, faTrophy  } from "@fortawesome/free-solid-svg-icons";
+import FadeIn from "@/components/ui/FadeIn";
+import HeroSection from "@/components/dashboard/HeroSection";
+import dynamic from "next/dynamic";
+
+const AlertsSection = dynamic(
+  () => import("@/components/dashboard/AlertsSection"),
+  { ssr: false }
+);
+
+const SuccessStoriesSection = dynamic(
+  () => import("@/components/dashboard/SuccessStoriesSection"),
+  { ssr: false }
+);
+
+const StatsOverview = dynamic(
+  () => import("@/components/dashboard/StatsOverview"),
+  { ssr: false }
+);
+
+function CardSkeleton() {
+  return (
+    <div className="h-64 rounded-2xl bg-[#E3D8CB] animate-pulse/60 transition duration-300 ease-out hover:-translate-y-1 hover:shadow-lg" />
+  );
+}
+
+function StatsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-28 rounded-2xl bg-[#E3D8CB] animate-pulse/60 transition duration-300 ease-out hover:-translate-y-1 hover:shadow-lg"
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
-
   const [page, setPage] = useState(0);
   const { pets, currentPage, totalPages, loading } = usePets(page);
 
+  const handlePageChange = useCallback((p) => {
+    setPage(p);
+  }, []);
+
   return (
-    <main className="min-h-screen bg-linear-to-br from-orange-primary to-orange-light">
-      {/* Hero Section */}
-      <section className="py-16 lg:py-20 px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Hero Text Section */}
-            <div className="text-white text-center lg:text-left space-y-8">
-              <div>
-                <h1
-                  className="text-4xl lg:text-5xl font-bold leading-tight mb-4
-                  [text-shadow:2px_2px_4px_rgba(0,0,0,0.2)]"
-                >
-                  Every Pet Counts. Every Paw Matters.
-                </h1>
-                <p className="text-lg lg:text-xl leading-relaxed opacity-95 max-w-xl mx-auto lg:mx-0">
-                  Smart QR tags, AI photo ID, wellness tracking, and community care
-                  empowering every pet owner to protect, connect, and nurture because
-                  your pet isn&apos;t just an animal, they&apos;re family.
-                </p>
-              </div>
+    <main className="min-h-screen flex flex-col bg-transparent">
 
-              {/* Stats Section */}
-              <div className="flex flex-wrap gap-8 lg:gap-12 justify-center lg:justify-start">
-                {heroStatsInfo.map((stat, index) => (
-                  <div key={index} className="text-center">
-                    <div className="text-3xl lg:text-4xl font-bold mb-1">{stat.number}</div>
-                    <div className="text-sm lg:text-base opacity-90">
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
+      {/* PAGE CONTENT */}
+      <div className="relative overflow-hidden flex-grow">
+        <div aria-hidden className="paw-background" />
+
+        {/* grain */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.035] bg-[url('/noise.png')] animate-[grainBreath_20s_ease-in-out_infinite]"
+        />
+
+        {/* Hero */}
+        <section className="px-6 pt-6 pb-16 relative">
+          <HeroSection />
+        </section>
+
+        {/* Alerts + Stats */}
+        <section className="px-6 pt-0 pb-12 rounded-t-[2.5rem] page-glass-bg">
+          <FadeIn delay={200}>
+            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {loading ? (
+                <>
+                  <CardSkeleton />
+                  <CardSkeleton />
+                </>
+              ) : (
+                <>
+                  <AlertsSection
+                    pets={pets}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    loading={loading}
+                    onPageChange={handlePageChange}
+                  />
+                  <SuccessStoriesSection count={pets.length} />
+                </>
+              )}
+            </div>
+          </FadeIn>
+
+          <section className="pt-4 pb-4">
+            <div className="max-w-6xl mx-auto">
+              {loading ? <StatsSkeleton /> : <StatsOverview />}
             </div>
 
-            {/* Action Cards Section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
-              {mainTilesInfo.map((tile, index) => (
-                <Link href={tile.link} key={index}>
-                  <button className="bg-white rounded-2xl p-7 lg:p-8 shadow-lg hover:shadow-xl text-center group transition-transform duration-200 hover:scale-105 w-full">
-                    <div className="text-orange-primary mb-4">
-                      {tile.customIcon || (
-                        <FontAwesomeIcon icon={tile.icon} className="text-6xl mx-auto" />
-                      )}
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">
-                      {tile.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm leading-relaxed max-w-xs mx-auto">
-                      {tile.description}
-                    </p>
-                  </button>
-                </Link>
-              ))}
+            <div className="max-w-6xl mx-auto mt-4">
+              <div className="h-px bg-linear-to-r from-transparent via-[#D6C4B5] to-transparent" />
             </div>
-          </div>
+          </section>
+        </section>
+      </div>
+
+      {/* FOOTER — LAST ELEMENT */}
+      <footer className="relative z-50 bg-[#f6f1eb]/85 backdrop-blur-md border-t border-[#c8b4a0]/30">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-sm text-[#3b2f26]">
+          <span className="font-medium">
+            © 2026 tailsGuide. All rights reserved.
+          </span>
+          <span className="text-[#5a4a3a]">
+            Built with care for pets & people 🐾
+          </span>
         </div>
-      </section>
+      </footer>
 
-      {/* Stats and Alerts Section */}
-      <section className="py-16 lg:py-20 px-6 lg:px-8 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          {/* Section Headers */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-12">
-            {/* {sectionHeadersInfo.map((header, index) => (
-              <div key={index} className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
-                <div className="flex items-center gap-4">
-                  {header.customIcon || (
-                    <FontAwesomeIcon icon={header.icon} className="text-orange-primary text-3xl" />
-                  )}
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    {header.title}
-                  </h2>
-                </div>
-                <PetList />
-              </div>
-            ))} */}
-            <div className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
-              <div className="flex items-center gap-4 mb-5">
-                <FontAwesomeIcon icon={faBell} className="text-orange-primary text-3xl" />
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Active Alerts
-                </h2>
-              </div>
-              <PetList 
-                pets={pets}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                loading={loading}
-                onPageChange={setPage}
-              />
-            </div>
-            <div className="bg-white rounded-2xl p-6 lg:p-8 shadow-md">
-              <div className="flex items-center gap-4 mb-5">
-                <FontAwesomeIcon icon={faTrophy} className="text-orange-primary text-3xl" />
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Recent Success Stories
-                </h2>
-              </div>
-              <StoryList count={pets.length} />
-            </div>
-            
-          </div>
-
-          {/* Stats Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {statsCardsInfo.map((card, index) => (
-              <div key={index} className="bg-white rounded-2xl p-7 lg:p-8 shadow-md text-center">
-                <div className="text-orange-primary mb-4">
-                  {card.icon}
-                </div>
-                <div className="text-4xl font-bold text-gray-800 mb-1">{card.number}</div>
-                <div className="text-gray-500 text-sm">{card.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
     </main>
   );
 }

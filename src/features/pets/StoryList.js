@@ -10,7 +10,7 @@ function StoryCard({ story }) {
         <FontAwesomeIcon icon={story.logo} />
       </div>
       <div className="flex-1">
-       <h4 className="text-gray-800 font-semibold mb-2">{story.title}</h4>
+        <h4 className="text-gray-800 font-semibold mb-2">{story.title}</h4>
         <p className="text-gray-600 text-sm mb-2">{story.story}</p>
         <span className="text-gray-500 text-xs">{story.date}</span>
       </div>
@@ -18,7 +18,33 @@ function StoryCard({ story }) {
   );
 }
 
-export default function StoryList({ count }) {
+export default function StoryList({ count, loading = false }) {
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-20 rounded-xl bg-gray-100 animate-pulse"
+          />
+        ))}
+      </div>
+    );
+  }
+  if (!loading && count === 0) {
+    return (
+      <div className="text-center py-10">
+        <div className="text-4xl mb-2">❤️</div>
+        <h3 className="text-lg font-semibold text-gray-800">
+          No success stories yet
+        </h3>
+        <p className="text-sm text-gray-500">
+          Reunited pets will appear here soon.
+        </p>
+      </div>
+    );
+  }
 
   const stories = [
     {
