@@ -69,7 +69,7 @@ export default function Home() {
         {/* Alerts + Stats */}
         <section className="px-6 pt-0 pb-12 rounded-t-[2.5rem] page-glass-bg">
           <FadeIn delay={200}>
-            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
               {loading ? (
                 <>
                   <CardSkeleton />
@@ -101,18 +101,6 @@ export default function Home() {
           </section>
         </section>
       </div>
-
-      {/* FOOTER — LAST ELEMENT */}
-      <footer className="relative z-50 bg-[#f6f1eb]/85 backdrop-blur-md border-t border-[#c8b4a0]/30">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-sm text-[#3b2f26]">
-          <span className="font-medium">
-            © 2026 tailsGuide. All rights reserved.
-          </span>
-          <span className="text-[#5a4a3a]">
-            Built with care for pets & people 🐾
-          </span>
-        </div>
-      </footer>
 
     </main>
   );

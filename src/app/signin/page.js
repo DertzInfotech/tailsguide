@@ -17,9 +17,6 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [notification, setNotification] = useState(null);
   const { login } = useAuth();
-  const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
-  };
 
   const router = useRouter();
 
@@ -135,20 +132,6 @@ export default function SignIn() {
             >
               Sign In
             </button>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full py-3 rounded-xl border border-gray-300 bg-white
-             flex items-center justify-center gap-3
-             hover:bg-gray-50 transition shadow-sm"
-            >
-              <img src="/google.svg" alt="Google" className="w-5 h-5" />
-              <span className="text-sm font-medium text-gray-700">
-                Continue with Google
-              </span>
-            </button>
-
           </form>
 
           {/* Divider */}

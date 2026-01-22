@@ -8,7 +8,7 @@ export default function StatsOverview() {
       {statsCardsInfo.map((card, i) => (
         <div
           key={i}
-          className="group relative isolate rounded-2xl p-5 sm:p-7 text-center
+          className="group relative isolate rounded-2xl p-4 sm:p-5 lg:p-7 text-center
   bg-[#ebc995]
   transition-all duration-300 ease-out
   hover:-translate-y-1

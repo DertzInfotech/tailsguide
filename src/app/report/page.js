@@ -247,7 +247,7 @@ export default function ReportPage() {
           <button
             onClick={() => handleTypeChange('lost')}
             className={`px-8 py-4 rounded-xl font-bold text-lg transition-all ${reportType === 'lost'
-              ? 'bg-red-500 text-white shadow-lg'
+              ? 'bg-[#b1620b] text-white shadow-lg'
               : 'bg-white text-gray-800 hover:bg-gray-50'
               }`}
           >
@@ -693,7 +693,7 @@ export default function ReportPage() {
     <button
       type="button" 
       onClick={handleNextStep}
-      className="px-8 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 font-semibold"
+      className="px-8 py-3 bg-[#b1620b] text-white rounded-lg hover:bg-[#9a5500] font-semibold"
     >
       Next
     </button>
@@ -702,8 +702,8 @@ export default function ReportPage() {
   type="button"            // ⛔ NOT submit
   onClick={handleSubmit}   // ✅ submit ONLY when clicked
   disabled={isSubmitting}
-  className={`px-8 py-3 bg-red-500 text-white rounded-lg font-semibold
-  ${isSubmitting ? 'bg-red-300 cursor-not-allowed' : 'hover:bg-red-600'}
+  className={`px-8 py-3 bg-[#b1620b] text-white rounded-lg font-semibold
+  ${isSubmitting ? 'bg-red-300 cursor-not-allowed' : 'hover:bg-[#9a5500]'}
 `}
 >
   {isSubmitting ? 'Submitting...' : 'Submit Lost Pet Report'}

@@ -10,10 +10,10 @@ export default function HeroSection() {
     <section className="
   pt-4 pb-16 lg:pt-6 lg:pb-20
   relative overflow-hidden
-  bg-[linear-gradient(180deg,#ffc100,#ff9a00)]
+  bg-[linear-gradient(to_bottom,rgba(249,154,0,0.95),rgba(255,156,64,0.98))]
 ">
 
-      <div className="max-w-6xl mx-auto px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-[2.5rem]">
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -72,19 +72,18 @@ export default function HeroSection() {
             </div>
 
             {/* Action Tiles */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
               {mainTilesInfo.map((tile, i) => (
                 <Link href={tile.link} key={i}>
                   <button
                     className="
-  rounded-2xl p-7 glass-card
-  hover:-translate-y-1
-  hover:shadow-[0_18px_45px_rgba(0,0,0,0.18)]
-  transition-transform
-"
+    w-full h-full
+    rounded-2xl p-5 sm:p-7 glass-card
+    hover:-translate-y-1
+    hover:shadow-[0_18px_45px_rgba(0,0,0,0.18)]
+    transition-transform
+  "
                     style={{ borderTop: "4px solid var(--amber)" }}
-
-
                   >
                     <div
                       className="mb-4"
@@ -92,7 +91,7 @@ export default function HeroSection() {
                     >
 
                       {tile.customIcon || (
-                        <FontAwesomeIcon icon={tile.icon} className="text-6xl mx-auto" />
+                        <FontAwesomeIcon icon={tile.icon} className="text-5xl mx-auto" />
                       )}
                     </div>
                     <h3
@@ -114,7 +113,7 @@ export default function HeroSection() {
             <div
               className="absolute bottom-0 left-0 w-full h-12"
               style={{
-                background: "linear-gradient(to bottom, transparent, var(--background))",
+                background: "linear-gradient(to bottom, #e4a444, #ec9654)",
               }}
             />
           </div>

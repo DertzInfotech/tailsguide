@@ -19,13 +19,13 @@ export const heroStatsInfo = [
 // Main Action Tiles Data
 export const mainTilesInfo = [
     {
-        title: 'Report Lost Pet',
+        title: 'Report Lost & Found Pet',
         description: 'Lost your furry friend? Get help from our community.',
         link: '/report',
         icon: faSearch
     },
     {
-        title: 'Found a Pet',
+        title: 'Find & Reunite',
         description: 'Help a lost pet find their way home.',
         link: '/search',
         icon: faHeart
@@ -39,7 +39,7 @@ export const mainTilesInfo = [
     {
         title: 'Shelter Portal',
         description: 'Manage intake, care, and adoptions.',
-        link: '/shelter',
+        link: '/shelters',
         icon: faBuilding,
         customIcon: (
             <svg
