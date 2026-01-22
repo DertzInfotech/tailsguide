@@ -39,14 +39,14 @@ export default function Drawer({ isDrawerOpen, onClose }) {
       {/* Drawer panel */}
       <div
         className={`
-          fixed top-0 right-0 h-screen w-64 lg:hidden
-          bg-white shadow-xl
+          fixed top-0 right-0 h-[50vh] rounded-bl-3xl w-64 lg:hidden
+          bg-[#fff5e9] shadow-none
           transform transition-transform duration-300 ease-out
           z-50
           ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}
         `}
       >
-        <div className="p-6">
+        <div className="p-6 h-full overflow-y-auto">
           {/* Header */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="font-bold text-xl text-orange-primary">Menu</h2>

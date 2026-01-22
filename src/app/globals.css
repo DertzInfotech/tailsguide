@@ -67,6 +67,8 @@ body {
   padding: 0;
   min-height: 100%;
   background: #fdfcfb;
+  overflow-x: hidden;
+
 }
 
 .glass-card {
@@ -74,28 +76,42 @@ body {
   background: var(--surface-glass);
   border: 1px solid var(--surface-border);
   box-shadow: var(--soft-shadow);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-radius: 1.5rem;
+}
+@media (min-width: 768px) {
+  .glass-card {
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
 }
 
 /* SOLID ORANGE CARD — overrides glass-card */
 .orange-card {
-  background: #ff7400 !important;
+  background: linear-gradient(
+    180deg,
+    #f8a11e 0%,
+    #fa7814 100%
+  ) !important;
 
-  /* stop glass blending */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 
-  /* keep structure */
   border: 1px solid rgba(255, 255, 255, 0.25);
-}
-
-.orange-card {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 18px 40px rgba(0, 0, 0, 0.35);
+
+  color: #ffffff;
 }
+
+.orange-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 22px 50px rgba(0, 0, 0, 0.45);
+}
+
 
 .glass-section {
   background: rgba(255, 255, 255, 0.55);
@@ -218,29 +234,12 @@ main,
   z-index: 1;
 }
 
-/* ORANGE ACTION CARD (for Alerts & Success only) */
-/* ORANGE ACTION CARD — solid, no glass wash */
-.orange-card {
-  background: #ff7400 !important;
-
-  /* KILL glass effect */
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-
-  color: #ffffff;
-}
-
-
 /* text inside orange cards */
 .orange-card h2,
 .orange-card p {
   color: #ffffff !important;
 }
 
-/* slightly darker hover shadow for orange */
-.orange-card:hover {
-  box-shadow: 0 20px 45px rgba(255, 116, 0, 0.45);
-}
 
 header>nav {
   position: relative;
@@ -306,7 +305,37 @@ header>nav {
 }
 
 .pet-strip-wrapper {
-  margin-top: -100px;
+  margin-top: 0;
   margin-bottom: 4px;
   max-height: 250px;
+}
+@media (min-width: 1024px) {
+  .pet-strip-wrapper {
+    margin-top: -100px;
+  }
+}
+
+@keyframes scrollY {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-scroll-y {
+  animation: scrollY 18s linear infinite;
+}
+.scroll-pause:hover .animate-scroll-y {
+  animation-play-state: paused;
+}
+.scroll-paused {
+  animation-play-state: paused !important;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 1rem;
 }

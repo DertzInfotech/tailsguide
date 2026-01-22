@@ -17,10 +17,6 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [notification, setNotification] = useState(null);
   const router = useRouter();
-  const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google`;
-  };
-
 
   const handleSignUp = async (e) => {
     e.preventDefault();
@@ -145,21 +141,6 @@ export default function SignUp() {
             <span className="text-xs text-gray-400">OR</span>
             <div className="h-px flex-1 bg-gray-200" />
           </div>
-
-          {/* Google login (UI only for now) */}
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="w-full py-3 rounded-xl border border-gray-300 bg-white
-             flex items-center justify-center gap-3
-             hover:bg-gray-50 transition shadow-sm"
-          >
-            <img src="/google.svg" alt="Google" className="w-5 h-5" />
-            <span className="text-sm font-medium text-gray-700">
-              Continue with Google
-            </span>
-          </button>
-
 
           {/* Redirect */}
           <div className="mt-6 text-center text-sm text-gray-650">
