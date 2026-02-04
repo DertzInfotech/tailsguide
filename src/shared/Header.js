@@ -57,12 +57,33 @@ export default function Header() {
 
             {isAuthenticated ? (
               <>
-                <Link href="/profile" className={pathname === "/profile" ? "nav-link active" : "nav-link"}>Profile</Link>
-                <button onClick={handleLogout} className="nav-link">Log Out</button>
+                <Link
+                  href="/my-pet"
+                  className={pathname === "/my-pets" ? "nav-link active" : "nav-link"}
+                >
+                  My Pets 🐾
+                </Link>
+
+                <Link
+                  href="/profile"
+                  className={pathname === "/profile" ? "nav-link active" : "nav-link"}
+                >
+                  Profile
+                </Link>
+
+                <button onClick={handleLogout} className="nav-link">
+                  Log Out
+                </button>
               </>
             ) : (
-              <Link href="/signin" className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
+              <Link
+                href="/signin"
+                className={pathname === "/signin" ? "nav-link active" : "nav-link"}
+              >
+                Sign In
+              </Link>
             )}
+
           </div>
 
           {/* Mobile Icon */}

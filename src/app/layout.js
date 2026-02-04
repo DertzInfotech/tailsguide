@@ -25,9 +25,13 @@ config.autoAddCss = false;
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <AuthProvider>
-          <Layout>{children}</Layout>
+          <Layout>
+            {children}
+          </Layout>
         </AuthProvider>
       </body>
     </html>

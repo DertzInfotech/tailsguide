@@ -9,7 +9,7 @@ export default function StatsOverview() {
         <div
           key={i}
           className="group relative isolate rounded-2xl p-4 sm:p-5 lg:p-7 text-center
-  bg-[#ebc995]
+  bg-[#fee3b9]
   transition-all duration-300 ease-out
   hover:-translate-y-1
   hover:shadow-[0_20px_45px_rgba(0,0,0,0.18)]"

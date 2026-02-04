@@ -234,12 +234,6 @@ main,
   z-index: 1;
 }
 
-/* text inside orange cards */
-.orange-card h2,
-.orange-card p {
-  color: #ffffff !important;
-}
-
 
 header>nav {
   position: relative;

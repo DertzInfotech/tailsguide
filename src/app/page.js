@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { usePets } from "@/lib/api-client";
 import FadeIn from "@/components/ui/FadeIn";
 import HeroSection from "@/components/dashboard/HeroSection";
@@ -42,8 +43,16 @@ function StatsSkeleton() {
 
 export default function Home() {
   const [page, setPage] = useState(0);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const { pets, currentPage, totalPages, loading } = usePets(page);
 
+useEffect(() => {
+  const token = localStorage.getItem("tailsToken");
+  if (token) {
+    setIsLoggedIn(true);
+  }
+}, []);
   const handlePageChange = useCallback((p) => {
     setPage(p);
   }, []);

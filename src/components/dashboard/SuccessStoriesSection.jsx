@@ -16,27 +16,22 @@ export default function SuccessStoriesSection({ count }) {
   ];
 
   return (
-    <div className="rounded-2xl p-5 sm:p-7 glass-card orange-card
-  transition-all duration-300 ease-out
-  hover:-translate-y-1">
+    <div
+      className="rounded-2xl p-5 sm:p-7 glass-card orange-card
+      transition-all duration-300 ease-out
+      hover:-translate-y-1"
+    >
       <div className="flex items-start gap-4 mb-4">
         <FontAwesomeIcon
           icon={faTrophy}
           className="text-2xl mt-1"
-
         />
 
         <div>
-          <h2
-            className="text-2xl font-extrabold tracking-tight"
-
-          >
+          <h2 className="text-2xl font-extrabold tracking-tight">
             Recent Success Stories
           </h2>
-          <p
-            className="text-sm"
-
-          >
+          <p className="text-sm">
             Reunited pets and happy endings from our community
           </p>
         </div>
@@ -60,9 +55,9 @@ export default function SuccessStoriesSection({ count }) {
             {[...mockStories, ...mockStories].map((story, idx) => (
               <div
                 key={idx}
-                className="bg-[#ff4d00] rounded-xl p-4 mb-3 shadow-sm"
+                className="bg-[#fee2c0] rounded-xl p-4 mb-3 shadow-sm"
               >
-                <p className="text-sm text-gray-800 leading-relaxed">
+                <p className="text-sm text-gray-900 leading-relaxed">
                   ❤️ {story}
                 </p>
               </div>
@@ -72,7 +67,6 @@ export default function SuccessStoriesSection({ count }) {
       ) : (
         <StoryList count={count} />
       )}
-
     </div>
   );
 }
