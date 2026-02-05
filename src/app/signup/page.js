@@ -1,65 +1,102 @@
-'use client';
+"use client";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAddressCard } from "@fortawesome/free-solid-svg-icons";
 import Image from "next/image";
 import Link from "next/link";
 import Input from "@/shared/Input";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signup } from "@/lib/api-client";
+import { registerUser, loginUser } from "@/api/authApi";
+import Notification from "@/shared/Notification";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignUp() {
-
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [mobileNo, setMobileNo] = useState('');
-  const [email, setEmail] = useState('');
-  const [notification, setNotification] = useState(null);
   const router = useRouter();
+  const { login } = useAuth();
 
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [notification, setNotification] = useState(null);
+
+  /* ---------- SIGN UP ---------- */
   const handleSignUp = async (e) => {
     e.preventDefault();
 
-    try {
-      const userData = {
-        displayName: '',
-        userName: '',
-        mobileNumber: mobileNo,
-        email: email,
-        password: password,
-      }
-      const result = await signup(userData);
-      if (result.response.ok) {
-        localStorage.setItem("tailsToken", result.result.token);
-        showNotification("Logged in successfully!", 'success');
-        router.push('./signin')
-      } else {
-        showNotification(result.result.validationErrors, 'error')
-      }
-    } catch (error) {
-      console.log("error");
+    if (!displayName || !email || !mobileNo || !password || !confirmPassword) {
+      showNotification("All fields are mandatory", "error");
+      return;
     }
-  }
 
-  const showNotification = (message, type = 'info') => {
+    if (password.length < 8) {
+      showNotification("Password must be at least 8 characters", "error");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showNotification("Passwords do not match", "error");
+      return;
+    }
+
+    // Split Display Name → First & Last name
+    const [firstName, ...rest] = displayName.trim().split(" ");
+    const lastName = rest.join(" ");
+
+    try {
+      /* ---------- REGISTER ---------- */
+      await registerUser({
+        displayName,
+        userName: email,          // 🔑 username = email
+        mobileNumber: mobileNo,
+        email,
+        password,
+      });
+
+      /* ---------- AUTO LOGIN ---------- */
+      const loginResult = await loginUser({
+        username: email,
+        password,
+      });
+
+      localStorage.setItem("tailsToken", loginResult.token);
+
+      login(loginResult.token);
+
+      /* ---------- SAVE PROFILE DATA ---------- */
+      localStorage.setItem("userEmail", email);
+      localStorage.setItem("username", email);
+      localStorage.setItem("userMobile", mobileNo);
+      localStorage.setItem("firstName", firstName);
+      localStorage.setItem("lastName", lastName);
+
+      showNotification("Account created & logged in!", "success");
+
+      setTimeout(() => {
+        router.push("/profile");   // ✅ go directly to profile
+      }, 1200);
+
+    } catch (error) {
+      console.error(error);
+      showNotification("Signup failed. Please try again.", "error");
+    }
+  };
+
+  const showNotification = (message, type = "info") => {
     setNotification({ message, type });
-  }
+  };
 
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => {
-        setNotification(null);
-      }, 5000);
+      const timer = setTimeout(() => setNotification(null), 4000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
 
-
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#f7f3ee] overflow-hidden">
 
-      {/* Background image */}
+      {/* Background */}
       <Image
         src="/images/pet_signup.png"
         alt="Pets background"
@@ -67,87 +104,93 @@ export default function SignUp() {
         className="object-cover"
         priority
       />
-
-      {/* Dark overlay */}
       <div className="absolute inset-0 bg-black/40" />
 
-      {/* Centered glass card */}
+      {/* Card */}
       <div className="relative z-10 w-full max-w-md mx-auto px-6">
-        <div className="rounded-2xl bg-white/25 backdrop-blur-2xl
-                shadow-[0_20px_60px_rgba(0,0,0,0.25)]
-                border border-white/10 p-8">
+        <div className="rounded-2xl bg-white/25 backdrop-blur-2xl shadow-lg p-8">
 
-          {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-              Create account ✨
-            </h1>
-            <p className="mt-2 text-sm text-gray-750">
+            <h1 className="text-3xl font-extrabold">Create account ✨</h1>
+            <p className="text-sm mt-1">
               Join tailsGuide and help pets find their way home.
             </p>
           </div>
 
-          {/* Form */}
-          <form className="space-y-4" onSubmit={handleSignUp}>
+          {/* 🔐 IMPORTANT: proper form for browser password save */}
+          <form
+            className="space-y-4"
+            onSubmit={handleSignUp}
+            autoComplete="on"
+          >
+            <Input
+              id="displayName"
+              name="name"
+              label="Display Name"
+              type="text"
+              autoComplete="name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
 
             <Input
               id="email"
+              name="email"
               label="Email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
 
             <Input
-              id="mobileno"
+              id="mobile"
+              name="tel"
               label="Mobile Number"
-              type="text"
+              type="tel"
+              autoComplete="tel"
               value={mobileNo}
               onChange={(e) => setMobileNo(e.target.value)}
             />
 
+            {/* Password fields — browser save depends on these */}
             <Input
               id="password"
+              name="password"
               label="Password"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
 
             <Input
-              id="confirmpassword"
+              id="confirmPassword"
+              name="confirmPassword"
               label="Confirm Password"
               type="password"
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
 
-            {/* Submit */}
             <button
               type="submit"
-              className="w-full mt-2 py-3 rounded-xl
-             bg-green-500 hover:bg-green-600
-             text-white font-semibold
-             active:scale-[0.98]
-             transition-all shadow-lg"
+              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-semibold transition"
             >
               Sign Up
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gray-200" />
-            <span className="text-xs text-gray-400">OR</span>
-            <div className="h-px flex-1 bg-gray-200" />
-          </div>
-
-          {/* Redirect */}
-          <div className="mt-6 text-center text-sm text-gray-650">
+          <div className="mt-6 text-center text-sm">
             Already have an account?
-            <Link href="/signin" className="ml-1 font-semibold text-orange-primary hover:underline">
+            <Link href="/signin" className="ml-1 font-semibold text-orange-primary">
               Sign In
             </Link>
+          </div>
+
+          <div className="mt-4 text-center text-xs text-gray-650">
+            🔐 Your browser can securely save your login details
           </div>
 
         </div>
@@ -162,5 +205,4 @@ export default function SignUp() {
       )}
     </div>
   );
-
 }

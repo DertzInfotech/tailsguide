@@ -3,7 +3,7 @@ import { faHeart, faQrcode, faSearch, faBuilding, faTrophy, faBell } from "@fort
 // Hero Stats Data
 export const heroStatsInfo = [
     {
-        number: '2,847',
+        number: '347',
         label: 'Pets Reunited'
     },
     {
@@ -11,7 +11,7 @@ export const heroStatsInfo = [
         label: 'Success Rate'
     },
     {
-        number: '18hrs',
+        number: '17hrs',
         label: 'Avg. Reunion Time'
     }
 ];
@@ -103,7 +103,7 @@ export const statsCardsInfo = [
         )
     },
     {
-        number: '156',
+        number: '4',
         label: 'Active Alerts',
         icon: (
             <svg

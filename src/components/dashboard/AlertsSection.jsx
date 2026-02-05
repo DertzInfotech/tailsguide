@@ -20,27 +20,21 @@ export default function AlertsSection({
   return (
     <div
       className="rounded-2xl p-5 sm:p-7 glass-card orange-card
-  transition-all duration-300 ease-out
-  hover:-translate-y-1"
+      transition-all duration-300 ease-out
+      hover:-translate-y-1"
     >
 
       <div className="flex items-center gap-4 mb-2">
         <FontAwesomeIcon
           icon={faBell}
           className="text-2xl"
-
         />
-        <h2
-          className="text-2xl font-extrabold tracking-tight"
-
-        >
+        <h2 className="text-2xl font-extrabold tracking-tight">
           Active Alerts
         </h2>
       </div>
-      <p
-        className="text-sm mb-5"
 
-      >
+      <p className="text-sm mb-5">
         Real-time reports from the community
       </p>
 
@@ -62,17 +56,17 @@ export default function AlertsSection({
             {[...mockAlerts, ...mockAlerts].map((alert, idx) => (
               <div
                 key={idx}
-                className="bg-[#ff4d00] rounded-xl p-4 mb-3 flex justify-between items-center shadow-sm"
+                className="bg-[#fee2c0] rounded-xl p-4 mb-3 flex justify-between items-center shadow-sm"
               >
                 <div>
-                  <p className="font-semibold text-gray-800">
+                  <p className="font-semibold text-gray-900">
                     {alert.name} · {alert.type}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700">
                     Last seen in {alert.location}
                   </p>
                 </div>
-                <span className="text-xs font-medium text-orange-300">
+                <span className="text-xs font-medium text-orange-600">
                   {alert.time}
                 </span>
               </div>
@@ -88,7 +82,6 @@ export default function AlertsSection({
           onPageChange={onPageChange}
         />
       )}
-
     </div>
   );
 }

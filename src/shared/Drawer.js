@@ -65,6 +65,9 @@ export default function Drawer({ isDrawerOpen, onClose }) {
             <Link href="/resources" onClick={onClose} className="nav-link">Resources</Link>
             <Link href="/signin" onClick={onClose} className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
             <Link href="/signup" onClick={onClose} className={pathname === "/signup" ? "nav-link active" : "nav-link"}>Sign Up</Link>
+            <Link href="/my-pets" onClick={onClose} className="nav-link">
+              My Pets 🐾
+            </Link>
           </div>
         </div>
       </div>
