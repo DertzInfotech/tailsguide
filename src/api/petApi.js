@@ -52,3 +52,6 @@ export const getPetFlyerPdf = (id) =>
 
 export const getPetCollarQr = (id) =>
   api.get(`/pet/${id}/collar-qr`, { responseType: "blob" });
+
+export const deletePet = (id) =>
+  api.delete(`/pet/${id}`);

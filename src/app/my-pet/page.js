@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getMyPets, reportPet } from "@/api/petApi";
+import { getMyPets, reportPet, deletePet } from "@/api/petApi";
 import { useRouter } from "next/navigation";
 
 /* ---------- PROFILE COMPLETENESS CHECK ---------- */
@@ -30,12 +30,13 @@ export default function MyPets() {
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
 
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [missingFields, setMissingFields] = useState([]);
-  const [selectedPetId, setSelectedPetId] = useState(null);
-
-  // 🔑 track broken images per pet
   const [brokenImages, setBrokenImages] = useState({});
+
+  const [openMenuId, setOpenMenuId] = useState(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [petToDelete, setPetToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const router = useRouter();
 
@@ -81,15 +82,51 @@ export default function MyPets() {
     }
   };
 
+  /* ---------- DELETE PET ---------- */
+const confirmDelete = async () => {
+  if (!petToDelete) return;
+
+  try {
+    setDeleting(true);
+
+    const res = await deletePet(petToDelete.id);
+    console.log("DELETE RESPONSE:", res);
+
+    setPets((prev) => prev.filter((p) => p.id !== petToDelete.id));
+    setShowDeleteModal(false);
+    setPetToDelete(null);
+  } catch (err) {
+    console.error("DELETE ERROR FULL:", err);
+
+    if (err.response) {
+      console.error("STATUS:", err.response.status);
+      console.error("DATA:", err.response.data);
+    } else {
+      console.error("NO RESPONSE FROM SERVER");
+    }
+
+    alert(
+      err.response?.data?.message ||
+      "Delete failed (check console for details)"
+    );
+  } finally {
+    setDeleting(false);
+  }
+};
+
+
   if (loading) return <p className="p-6">Loading pets...</p>;
 
   return (
     <div className="min-h-screen p-6 bg-[#f7f3ee]">
-      <h1 className="text-2xl font-bold mb-6">My Pets 🐾</h1>
+      <h1 className="text-2xl font-bold mb-1">My Pets 🐾</h1>
+      <p className="text-sm text-gray-600 mb-6">
+        Manage and update your pets’ profiles
+      </p>
 
       <button
         onClick={() => setShowForm(!showForm)}
-        className="px-5 py-2 rounded-xl bg-green-500 text-white mb-6"
+        className="px-5 py-2 rounded-xl bg-green-500 text-white mb-6 shadow-sm"
       >
         + Add Pet
       </button>
@@ -121,91 +158,95 @@ export default function MyPets() {
         {pets.map((pet) => {
           const missing = getMissingProfileFields(pet);
           const isComplete = missing.length === 0;
-console.log("PET IMAGE URL:", pet.photoUrl, pet.thumbnailUrl);
+
           const imageUrl = pet.thumbnailUrl || pet.photoUrl;
           const hasValidImage =
-            imageUrl &&
+            typeof imageUrl === "string" &&
+            imageUrl.trim() !== "" &&
             imageUrl !== "null" &&
             imageUrl !== "undefined" &&
             !brokenImages[pet.id];
-            console.log("HAS VALID IMAGE?", pet.id, hasValidImage);
 
           return (
             <div
               key={pet.id}
-              className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
+              className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition flex justify-between items-center relative"
             >
-              {/* LEFT SIDE */}
-              <div className="flex items-center gap-4">
-                {/* IMAGE / PLACEHOLDER */}
+              {/* LEFT */}
+              <div className="flex items-center gap-5">
+                {/* AVATAR */}
                 <div
                   onClick={() => {
                     if (!hasValidImage) {
                       router.push(`/edit-pet/${pet.id}`);
                     }
                   }}
-                  className={`w-14 h-14 rounded-full border overflow-hidden
-                    flex items-center justify-center
+                  className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center
                     ${
                       hasValidImage
-                        ? "cursor-default"
-                        : "cursor-pointer bg-gray-100 hover:bg-gray-200"
+                        ? "ring-2 ring-offset-2 ring-offset-white bg-gradient-to-br from-emerald-400 to-emerald-600"
+                        : "border-2 border-dashed border-gray-300 bg-gray-100 cursor-pointer"
                     }`}
                 >
                   {hasValidImage ? (
                     <img
-                      src={`http://64.225.84.126:8084${imageUrl}`}
+                      src={`http://64.225.84.126:8084/api/v1${imageUrl}`}
                       className="w-full h-full object-cover"
-                      draggable={false}
                       onError={() =>
-                        setBrokenImages((prev) => ({
-                          ...prev,
-                          [pet.id]: true,
-                        }))
+                        setBrokenImages((p) => ({ ...p, [pet.id]: true }))
                       }
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center text-gray-500 text-[10px] leading-tight">
-                      <span className="text-lg">📷</span>
-                      <span>No image</span>
-                    </div>
+                    <span className="text-2xl text-gray-400">📷</span>
                   )}
                 </div>
 
-                {/* INFO */}
                 <div>
-                  <p className="font-medium">{pet.petName}</p>
+                  <p className="font-medium text-lg">{pet.petName}</p>
                   <p className="text-sm text-gray-600">{pet.breed}</p>
-                  <span
-                    className={`text-xs font-medium ${
-                      isComplete ? "text-green-600" : "text-orange-600"
+                  <p
+                    className={`text-sm mt-1 ${
+                      isComplete
+                        ? "text-emerald-600"
+                        : "text-orange-600"
                     }`}
                   >
-                    {isComplete ? "Profile Complete" : "Profile Incomplete"}
-                  </span>
+                    {isComplete ? "✓ Complete" : "⚠ Incomplete"}
+                  </p>
                 </div>
               </div>
 
-              {/* ACTIONS */}
-              <div className="flex gap-2">
+              {/* 3 DOT MENU */}
+              <div className="relative">
                 <button
-                  onClick={() => router.push(`/edit-pet/${pet.id}`)}
-                  className="px-3 py-1 text-sm rounded bg-gray-200"
+                  onClick={() =>
+                    setOpenMenuId(openMenuId === pet.id ? null : pet.id)
+                  }
+                  className="px-2 py-1 rounded hover:bg-gray-100"
                 >
-                  Edit
+                  ⋯
                 </button>
 
-                {!isComplete && (
-                  <button
-                    onClick={() => {
-                      setMissingFields(missing);
-                      setSelectedPetId(pet.id);
-                      setShowCompleteModal(true);
-                    }}
-                    className="px-3 py-1 text-sm rounded bg-orange-500 text-white"
-                  >
-                    Complete Profile
-                  </button>
+                {openMenuId === pet.id && (
+                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg z-20 overflow-hidden">
+                    <button
+                      onClick={() => router.push(`/edit-pet/${pet.id}`)}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                    >
+                      Edit profile
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setPetToDelete(pet);
+                        setShowDeleteModal(true);
+                        setOpenMenuId(null);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Delete pet
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -213,44 +254,32 @@ console.log("PET IMAGE URL:", pet.photoUrl, pet.thumbnailUrl);
         })}
       </div>
 
-      {/* COMPLETE PROFILE MODAL */}
-      {showCompleteModal && (
+      {/* DELETE MODAL */}
+      {showDeleteModal && petToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
-            <h2 className="text-xl font-semibold mb-3">
-              Complete Pet Profile
+            <h2 className="text-xl font-semibold mb-2">
+              Delete “{petToDelete.petName}”?
             </h2>
-
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-5">
-              <p className="text-sm font-medium text-orange-700 mb-2">
-                Missing information
-              </p>
-              <ul className="grid grid-cols-2 gap-2 text-sm text-orange-800">
-                {missingFields.map((field, idx) => (
-                  <li key={idx} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
-                    {field}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              This action is permanent and cannot be undone.
+            </p>
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowCompleteModal(false)}
+                onClick={() => setShowDeleteModal(false)}
                 className="px-4 py-2 rounded-lg text-sm text-gray-600"
+                disabled={deleting}
               >
                 Cancel
               </button>
 
               <button
-                onClick={() => {
-                  setShowCompleteModal(false);
-                  router.push(`/edit-pet/${selectedPetId}`);
-                }}
-                className="px-5 py-2 rounded-lg text-sm bg-green-500 text-white"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="px-5 py-2 rounded-lg text-sm bg-red-500 text-white hover:bg-red-600 disabled:opacity-60"
               >
-                Complete Profile
+                {deleting ? "Deleting..." : "Delete pet"}
               </button>
             </div>
           </div>
