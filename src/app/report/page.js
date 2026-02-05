@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from "react";
-import ImageDropzone from "../../components/UI/dropzone";
+import ImageDropzone from "../../components/ui/dropzone";
 import { useObjectDetection } from "../../utils/useObjectDetection";
 
 export default function ReportPage() {
