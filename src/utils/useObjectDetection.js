@@ -25,13 +25,17 @@ export const useObjectDetection = () => {
 
         const originalFetch = window.fetch;
         window.fetch = async (url, options) => {
-          if (typeof url === 'string' && (
-            url.includes('tfhub.dev') || 
-            url.includes('kaggle.com') || 
-            url.includes('storage.googleapis.com/tfjs-models')
-          )) {
+          if (
+            typeof url === "string" &&
+            !url.includes("proxy-model") &&
+            (
+              url.includes("tfhub.dev") ||
+                url.includes("kaggle.com") ||
+                url.includes("storage.googleapis.com/tfjs-models")
+            )
+          ) {
             const proxyUrl = `/api/proxy-model?url=${encodeURIComponent(url)}`;
-            console.log('Using proxy for:', url);
+            console.log("Using proxy for:", url);
             return originalFetch(proxyUrl, options);
           }
           return originalFetch(url, options);
