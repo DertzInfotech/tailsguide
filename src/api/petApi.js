@@ -1,12 +1,8 @@
 import api from "./axiosInstance";
 
-/* -----------------------------------------
-   CREATE + UPDATE PET (REGISTER / EDIT)
------------------------------------------- */
 export const reportPet = (petData, photoFile = null) => {
   const formData = new FormData();
 
-  // petDTO (JSON)
   formData.append(
     "petDTO",
     new Blob([JSON.stringify(petData)], {
@@ -14,7 +10,6 @@ export const reportPet = (petData, photoFile = null) => {
     })
   );
 
-  // photo (OPTIONAL but REQUIRED for update if changed)
   if (photoFile instanceof File) {
     formData.append("photo", photoFile);
   }
@@ -25,6 +20,7 @@ export const reportPet = (petData, photoFile = null) => {
     },
   });
 };
+
 
 /* -----------------------------------------
    FETCHING

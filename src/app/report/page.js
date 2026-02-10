@@ -140,17 +140,16 @@ export default function ReportPage() {
 
     try {
 
-      const result = await submitReport(requestOptions);
+      await submitReport(requestOptions);
 
-      if (result.response.ok) {
-        console.log("report submitted")
-        showNotification(`${reportType === 'lost' ? 'Lost' : 'Found'} pet report submitted successfully!`, 'success');
-        setTimeout(() => {
-          router.push('/');
-        }, 2000)
-      } else {
-        showNotification(result.result.validationErrors, 'error');
-      }
+
+      showNotification(
+  `${reportType.toUpperCase()} pet report submitted successfully!`,
+  "success"
+);
+
+      router.push("/");
+
       console.log(formdata);
     } catch (error) {
       console.log("Pet Data Submission Failed", error);
@@ -231,6 +230,7 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
+
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
@@ -266,8 +266,10 @@ export default function ReportPage() {
 
         {/* Lost Pet Form */}
         {reportType === 'lost' && (
-            <form className="bg-white rounded-2xl shadow-xl p-8"
-            onSubmit={(e) => e.preventDefault()}>
+          <form
+            className="bg-white rounded-2xl shadow-xl p-8"
+            onSubmit={(e) => e.preventDefault()}
+          >
             <div className="flex items-center justify-between mb-8">
               {['Pet Details', 'Location & Date', 'Contact Info', 'Medical Info'].map(
                 (label, index) => (
@@ -672,53 +674,55 @@ export default function ReportPage() {
               </div>
             )}
 
-{/* Step Actions */}
-<div className="flex justify-between items-center mt-10">
+            {/* Step Actions */}
+            <div className="flex justify-between items-center mt-10">
 
-  {/* Previous — show only after step 0 */}
-  {currentStep > 0 ? (
-    <button
-      type="button" 
-      onClick={handlePrevStep}
-      className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
-    >
-      Previous
-    </button>
-  ) : (
-    <div /> // keeps spacing
-  )}
+              {/* Previous — show only after step 0 */}
+              {currentStep > 0 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold"
+                >
+                  Previous
+                </button>
+              ) : (
+                <div /> // keeps spacing
+              )}
 
-  {/* Next OR Submit */}
-  {currentStep < 3 ? (
-    <button
-      type="button" 
-      onClick={handleNextStep}
-      className="px-8 py-3 bg-[#fd9e33] text-white rounded-lg hover:bg-[#9a5500] font-semibold"
-    >
-      Next
-    </button>
-  ) : (
-<button
-  type="button"            // ⛔ NOT submit
-  onClick={handleSubmit}   // ✅ submit ONLY when clicked
-  disabled={isSubmitting}
-  className={`px-8 py-3 bg-[#fd9e33] text-white rounded-lg font-semibold
+              {/* Next OR Submit */}
+              {currentStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="px-8 py-3 bg-[#fd9e33] text-white rounded-lg hover:bg-[#9a5500] font-semibold"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className={`px-8 py-3 bg-[#fd9e33] text-white rounded-lg font-semibold
   ${isSubmitting ? 'bg-red-300 cursor-not-allowed' : 'hover:bg-[#9a5500]'}
 `}
->
-  {isSubmitting ? 'Submitting...' : 'Submit Lost Pet Report'}
-</button>
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Lost Pet Report'}
+                </button>
 
-  )}
+              )}
 
-</div>
+            </div>
 
           </form>
         )}
-        
+
 
         {reportType === 'found' && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+          <form
+            className="bg-white rounded-2xl shadow-xl p-8"
+            onSubmit={(e) => e.preventDefault()}
+          >
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
 
             <div className="mb-6">
@@ -909,13 +913,12 @@ export default function ReportPage() {
             </div>
 
             <button
-              key="submit-button"
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={isSubmitting}
-              className={`w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg active:bg-green-500 hover:bg-green-700 font-semibold ${isSubmitting
-                ? 'bg-green-300 cursor-not-allowed'
-                : 'hover:bg-green-600'
-                }`}
+              className={`w-full mt-6 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold
+    ${isSubmitting ? 'bg-green-300 cursor-not-allowed' : 'hover:bg-green-700'}
+  `}
             >
               {isSubmitting ? "Submitting..." : "Submit Found Pet Report"}
             </button>

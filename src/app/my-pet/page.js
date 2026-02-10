@@ -17,7 +17,6 @@ const getMissingProfileFields = (pet) => {
   if (!pet.lastSeenLocation) missing.push("Location");
   if (!pet.ownerName) missing.push("Owner name");
   if (!pet.ownerPhone) missing.push("Phone number");
-  if (!pet.photoUrl && !pet.thumbnailUrl) missing.push("Pet photo");
 
   return missing;
 };
@@ -30,23 +29,26 @@ export default function MyPets() {
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
 
-  const [brokenImages, setBrokenImages] = useState({});
-
   const [openMenuId, setOpenMenuId] = useState(null);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [petToDelete, setPetToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  /* ---------- QR STATE (NEW) ---------- */
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrUrl, setQrUrl] = useState(null);
+  const [qrPetName, setQrPetName] = useState("");
+
   const router = useRouter();
 
   /* ---------- FETCH PETS ---------- */
   const fetchPets = async () => {
     try {
-      const response = await getMyPets();
-      setPets(response.data);
-    } catch (error) {
-      console.error("Failed to load pets", error);
+      const res = await getMyPets();
+      setPets(res.data);
+    } catch (err) {
+      console.error("Failed to load pets", err);
     } finally {
       setLoading(false);
     }
@@ -76,46 +78,56 @@ export default function MyPets() {
       setBreed("");
       setShowForm(false);
       fetchPets();
-    } catch (error) {
-      console.error("Failed to add pet", error);
+    } catch (err) {
+      console.error("Failed to add pet", err);
       alert("Failed to add pet");
     }
   };
 
   /* ---------- DELETE PET ---------- */
-const confirmDelete = async () => {
-  if (!petToDelete) return;
+  const confirmDelete = async () => {
+    if (!petToDelete) return;
 
-  try {
-    setDeleting(true);
-
-    const res = await deletePet(petToDelete.id);
-    console.log("DELETE RESPONSE:", res);
-
-    setPets((prev) => prev.filter((p) => p.id !== petToDelete.id));
-    setShowDeleteModal(false);
-    setPetToDelete(null);
-  } catch (err) {
-    console.error("DELETE ERROR FULL:", err);
-
-    if (err.response) {
-      console.error("STATUS:", err.response.status);
-      console.error("DATA:", err.response.data);
-    } else {
-      console.error("NO RESPONSE FROM SERVER");
+    try {
+      setDeleting(true);
+      await deletePet(petToDelete.id);
+      setPets((prev) => prev.filter((p) => p.id !== petToDelete.id));
+      setShowDeleteModal(false);
+      setPetToDelete(null);
+    } catch (err) {
+      console.error("Delete failed", err);
+      alert("Delete failed");
+    } finally {
+      setDeleting(false);
     }
+  };
 
-    alert(
-      err.response?.data?.message ||
-      "Delete failed (check console for details)"
-    );
-  } finally {
-    setDeleting(false);
+  /* ---------- GENERATE QR (NEW) ---------- */
+  const handleGenerateQR = async (pet) => {
+    try {
+      setQrLoading(true);
+      setQrPetName(pet.petName);
+
+      const res = await fetch(
+        `http://64.225.84.126:8084/api/v1/pet/${pet.id}/collar-qr`
+      );
+
+      if (!res.ok) throw new Error("QR generation failed");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      setQrUrl(url);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate QR code");
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <p className="p-6">Loading pets...</p>;
   }
-};
-
-
-  if (loading) return <p className="p-6">Loading pets...</p>;
 
   return (
     <div className="min-h-screen p-6 bg-[#f7f3ee]">
@@ -131,41 +143,13 @@ const confirmDelete = async () => {
         + Add Pet
       </button>
 
-      {showForm && (
-        <div className="mb-6 bg-white p-4 rounded-xl shadow">
-          <input
-            placeholder="Pet name"
-            value={petName}
-            onChange={(e) => setPetName(e.target.value)}
-            className="border p-2 rounded w-full mb-3"
-          />
-          <input
-            placeholder="Breed"
-            value={breed}
-            onChange={(e) => setBreed(e.target.value)}
-            className="border p-2 rounded w-full mb-3"
-          />
-          <button
-            onClick={handleAddPet}
-            className="px-4 py-2 rounded bg-green-500 text-white"
-          >
-            Save Pet
-          </button>
-        </div>
-      )}
-
+      {/* PET LIST */}
       <div className="grid gap-4">
         {pets.map((pet) => {
           const missing = getMissingProfileFields(pet);
           const isComplete = missing.length === 0;
 
-          const imageUrl = pet.thumbnailUrl || pet.photoUrl;
-          const hasValidImage =
-            typeof imageUrl === "string" &&
-            imageUrl.trim() !== "" &&
-            imageUrl !== "null" &&
-            imageUrl !== "undefined" &&
-            !brokenImages[pet.id];
+          const thumbnailUrl = `http://64.225.84.126:8084/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
 
           return (
             <div
@@ -174,31 +158,23 @@ const confirmDelete = async () => {
             >
               {/* LEFT */}
               <div className="flex items-center gap-5">
-                {/* AVATAR */}
                 <div
-                  onClick={() => {
-                    if (!hasValidImage) {
-                      router.push(`/edit-pet/${pet.id}`);
-                    }
-                  }}
-                  className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center
-                    ${
-                      hasValidImage
-                        ? "ring-2 ring-offset-2 ring-offset-white bg-gradient-to-br from-emerald-400 to-emerald-600"
-                        : "border-2 border-dashed border-gray-300 bg-gray-100 cursor-pointer"
-                    }`}
+                  onClick={() => router.push(`/edit-pet/${pet.id}`)}
+                  className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center
+                             border-2 border-dashed border-gray-300 bg-gray-100 cursor-pointer relative"
                 >
-                  {hasValidImage ? (
-                    <img
-                      src={`http://64.225.84.126:8084/api/v1${imageUrl}`}
-                      className="w-full h-full object-cover"
-                      onError={() =>
-                        setBrokenImages((p) => ({ ...p, [pet.id]: true }))
-                      }
-                    />
-                  ) : (
-                    <span className="text-2xl text-gray-400">📷</span>
-                  )}
+                  <img
+                    src={thumbnailUrl}
+                    className="w-full h-full object-cover"
+                    onLoad={(e) => {
+                      const camera = e.currentTarget.nextSibling;
+                      if (camera) camera.style.display = "none";
+                    }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <span className="text-2xl text-gray-400 absolute">📷</span>
                 </div>
 
                 <div>
@@ -206,9 +182,7 @@ const confirmDelete = async () => {
                   <p className="text-sm text-gray-600">{pet.breed}</p>
                   <p
                     className={`text-sm mt-1 ${
-                      isComplete
-                        ? "text-emerald-600"
-                        : "text-orange-600"
+                      isComplete ? "text-emerald-600" : "text-orange-600"
                     }`}
                   >
                     {isComplete ? "✓ Complete" : "⚠ Incomplete"}
@@ -216,7 +190,7 @@ const confirmDelete = async () => {
                 </div>
               </div>
 
-              {/* 3 DOT MENU */}
+              {/* MENU */}
               <div className="relative">
                 <button
                   onClick={() =>
@@ -228,12 +202,23 @@ const confirmDelete = async () => {
                 </button>
 
                 {openMenuId === pet.id && (
-                  <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg z-20 overflow-hidden">
+                  <div className="absolute right-0 mt-2 w-44 bg-white rounded-xl shadow-lg z-20 overflow-hidden">
                     <button
                       onClick={() => router.push(`/edit-pet/${pet.id}`)}
                       className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
                     >
                       Edit profile
+                    </button>
+
+                    {/* NEW QR OPTION */}
+                    <button
+                      onClick={() => {
+                        setOpenMenuId(null);
+                        handleGenerateQR(pet);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                    >
+                      Generate QR Code
                     </button>
 
                     <button
@@ -254,9 +239,53 @@ const confirmDelete = async () => {
         })}
       </div>
 
+      {/* QR MODAL (NEW) */}
+      {qrUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
+            <h2 className="text-xl font-semibold mb-2">
+              QR Code for {qrPetName}
+            </h2>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Attach this QR code to your pet’s collar
+            </p>
+
+            {qrLoading ? (
+              <p>Generating QR...</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <a
+                  href={qrUrl}
+                  target="_blank"
+                  className="px-4 py-2 rounded-lg bg-blue-500 text-white text-center"
+                >
+                  Preview QR
+                </a>
+
+                <a
+                  href={qrUrl}
+                  download={`pet-${qrPetName}-qr.pdf`}
+                  className="px-4 py-2 rounded-lg bg-green-500 text-white text-center"
+                >
+                  Download QR
+                </a>
+              </div>
+            )}
+
+            <button
+              onClick={() => setQrUrl(null)}
+              className="mt-5 text-sm text-gray-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* DELETE MODAL */}
       {showDeleteModal && petToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl p-6">
             <h2 className="text-xl font-semibold mb-2">
               Delete “{petToDelete.petName}”?

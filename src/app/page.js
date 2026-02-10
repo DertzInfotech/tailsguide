@@ -48,12 +48,12 @@ export default function Home() {
 
   const { pets, currentPage, totalPages, loading } = usePets(page);
 
-useEffect(() => {
-  const token = localStorage.getItem("tailsToken");
-  if (token) {
-    setIsLoggedIn(true);
-  }
-}, []);
+  useEffect(() => {
+    const token = localStorage.getItem("tailsToken");
+    if (token) {
+      setIsLoggedIn(true);
+    }
+  }, []);
   const handlePageChange = useCallback((p) => {
     setPage(p);
   }, []);
@@ -78,7 +78,7 @@ useEffect(() => {
 
         {/* Alerts + Stats */}
         <section className="px-6 pt-0 pb-12 rounded-t-[2.5rem] page-glass-bg">
-          <ReportsOverviewSection pets={pets} />
+          <ReportsOverviewSection />
           <FadeIn delay={200}>
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
               {loading ? (
@@ -103,7 +103,11 @@ useEffect(() => {
 
           <section className="pt-4 pb-4">
             <div className="max-w-6xl mx-auto">
-              {loading ? <StatsSkeleton /> : <StatsOverview />}
+              {loading ? (
+                <StatsSkeleton />
+              ) : (
+                <StatsOverview activeAlertsCount={pets.length} />
+              )}
             </div>
 
             <div className="max-w-6xl mx-auto mt-4">

@@ -1,41 +1,15 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from "react";
 import PetCard from "@/features/pets/PetCard";
 
-export default function PetList({ pets, currentPage, totalPages, loading, onPageChange }) {
-  const [thumbnails, setThumbnails] = useState({});
-
-  useEffect(() => {
-    const loadThumbnails = async () => {
-      const entries = await Promise.all(
-        pets.map(async (pet) => {
-          try {
-            const response = await fetch(
-              `https://tailsguide-production-53f0.up.railway.app/api/v1/pet/${pet.id}/thumbnail`
-            );
-            const blob = await response.blob();
-            return [pet.id, URL.createObjectURL(blob)];
-          } catch (err) {
-            console.error("Thumbnail fetch failed for pet", pet.id);
-            return [pet.id, null];
-          }
-        })
-      );
-
-      setThumbnails(Object.fromEntries(entries));
-    };
-
-    if (pets && pets.length > 0) {
-      loadThumbnails();
-    }
-
-    return () => {
-      Object.values(thumbnails).forEach((url) => {
-        if (url) URL.revokeObjectURL(url);
-      });
-    };
-  }, [pets]);
+export default function PetList({
+  pets,
+  currentPage,
+  totalPages,
+  loading,
+  onPageChange,
+  hidePagination = false
+}) {
 
   if (loading) {
     return (
@@ -49,38 +23,45 @@ export default function PetList({ pets, currentPage, totalPages, loading, onPage
       </div>
     );
   }
+
   if (!loading && pets.length === 0) {
-    return (
-      <div className="text-center py-10">
-        <div className="text-4xl mb-2">🎉</div>
-        <h3 className="text-lg font-semibold text-gray-800">
-          No active alerts right now
-        </h3>
-        <p className="text-sm text-gray-500">
-          That’s good news! We’ll notify you if something appears.
-        </p>
-      </div>
-    );
-  }
+  return (
+    <div className="text-center py-12">
+      <div className="text-5xl mb-3">🐾</div>
+      <h3 className="text-lg font-semibold text-gray-800">
+        No active alerts right now
+      </h3>
+      <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
+        That’s good news. Your community is safe — we’ll notify you instantly if something changes.
+      </p>
+    </div>
+  );
+}
 
   return (
     <div>
       {/* Card list */}
       <div className="flex flex-col">
         {pets.map((pet) => (
-          <PetCard key={pet.id} pet={pet} imageUrl={thumbnails[pet.id]} />
+          <PetCard
+            key={pet.id}
+            pet={pet}
+            imageUrl={`http://64.225.84.126:8084/api/v1/pet/${pet.id}/thumbnail`}
+          />
         ))}
       </div>
 
-      <p className="text-xs text-gray-500 text-center mt-4">
-        Showing community alerts in real time </p>
+      <p className="text-xs text-white text-center mt-4">
+        Showing community alerts in real time
+      </p>
 
       {/* Pagination */}
+      {!hidePagination && (
       <div className="flex justify-center items-center gap-4 mt-6">
         <button
-          className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium 
-              border border-gray-300 text-gray-700 hover:bg-orange-primary hover:text-white 
-              transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+            border border-gray-300 text-gray-700 hover:bg-orange-primary hover:text-white
+            transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           disabled={currentPage === 0}
           onClick={() => onPageChange((p) => Math.max(0, p - 1))}
         >
@@ -92,15 +73,15 @@ export default function PetList({ pets, currentPage, totalPages, loading, onPage
         </span>
 
         <button
-          className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium 
-              border border-gray-300 text-gray-700 hover:bg-orange-primary hover:text-white 
-              transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium
+            border border-gray-300 text-gray-700 hover:bg-orange-primary hover:text-white
+            transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
           disabled={currentPage + 1 >= totalPages}
           onClick={() => onPageChange((p) => Math.min(totalPages - 1, p + 1))}
         >
           Next →
         </button>
-      </div>
+      </div>)}
     </div>
   );
 }

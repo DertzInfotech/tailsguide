@@ -4,13 +4,16 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getMyPets, reportPet } from "@/api/petApi";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const MAX_PHOTOS = 5;
+
 export default function EditPetProfile() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [pet, setPet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [pet, setPet] = useState(null);
 
   /* ---------- PET DETAILS ---------- */
   const [petName, setPetName] = useState("");
@@ -40,19 +43,16 @@ export default function EditPetProfile() {
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [showMedical, setShowMedical] = useState(false);
 
-  /* ---------- PHOTO (SAFE MODEL) ---------- */
-  const [serverPhotoUrl, setServerPhotoUrl] = useState(null);
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState(null);
-  const [photoFile, setPhotoFile] = useState(null);
+  /* ---------- MEDIA ---------- */
+  const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [newPhotos, setNewPhotos] = useState([]); // File[]
 
-  /* ---------- FETCH PET ---------- */
+  /* ---------- LOAD PET ---------- */
   useEffect(() => {
     const fetchPet = async () => {
       try {
         const res = await getMyPets();
-        const found = res.data.find(
-          (p) => String(p.id) === String(id)
-        );
+        const found = res.data.find(p => String(p.id) === String(id));
 
         if (!found) {
           router.push("/my-pet");
@@ -84,16 +84,7 @@ export default function EditPetProfile() {
         setMedicalConditions(found.medicalConditions || "");
         setSpecialInstructions(found.specialInstructions || "");
 
-        setServerPhotoUrl(
-          found.photoUrl &&
-            found.photoUrl !== "null" &&
-            found.photoUrl !== "undefined" &&
-            found.photoUrl.trim() !== ""
-            ? found.photoUrl
-            : null
-        );
-        setPreviewPhotoUrl(null);
-        setPhotoFile(null);
+        setThumbnailUrl(`${API_BASE}/api/v1/pet/${id}/thumbnail`);
       } catch (err) {
         console.error(err);
         setToast({ type: "error", text: "Failed to load pet details" });
@@ -105,78 +96,45 @@ export default function EditPetProfile() {
     fetchPet();
   }, [id, router]);
 
-  /* ---------- PHOTO HANDLERS ---------- */
-  const onSelectPhoto = (file) => {
+  /* ---------- PHOTO HANDLERS (FRONTEND ONLY) ---------- */
+  const addPhoto = (file) => {
     if (!file) return;
-    setPreviewPhotoUrl(URL.createObjectURL(file));
-    setPhotoFile(file);
+    if (newPhotos.length >= MAX_PHOTOS) return;
+    setNewPhotos(prev => [...prev, file]);
   };
 
-  const deletePhoto = () => {
-    setPreviewPhotoUrl(null);
-    setPhotoFile(null);
-    setServerPhotoUrl(null);
+  const removePhoto = (index) => {
+    setNewPhotos(prev => prev.filter((_, i) => i !== index));
   };
-
-  const API_BASE = "http://64.225.84.126:8084";
-
-  const resolvePhotoUrl = (url) => {
-    if (!url) return null;
-    if (url.startsWith("http")) return url;
-    if (url.startsWith("/api")) return `${API_BASE}${url}`;
-    return `${API_BASE}/api/v1${url}`;
-  };
-
-  const isValidPhotoUrl = (url) => {
-    if (typeof url !== "string") return false;
-    return url.includes("/uploads/") && url.match(/\.(jpg|jpeg|png|webp)$/i);
-  };
-
-  const hasPhoto =
-    previewPhotoUrl !== null ||
-    (typeof serverPhotoUrl === "string" &&
-      serverPhotoUrl.trim().length > 0 &&
-      isValidPhotoUrl(serverPhotoUrl));
-
 
   /* ---------- SAVE ---------- */
   const handleSave = async () => {
-    if (!pet?.id) return;
-
     try {
-      const normalizedReportType =
-        reportType === "NA" ? null : reportType;
-
-      const payload = {
-        id: pet.id,
-        petName,
-        breed,
-        age,
-        gender,
-        size,
-        primaryColor,
-        distinctiveFeatures,
-
-        reportType: normalizedReportType,
-
-        // Only include report details if LOST or FOUND
-        ...(normalizedReportType && {
+      await reportPet(
+        {
+          id: pet.id,
+          petName,
+          breed,
+          age,
+          gender,
+          size,
+          primaryColor,
+          distinctiveFeatures,
+          reportType,
           lastSeenLocation,
           lastSeenDate,
           lastSeenTime,
           circumstances,
-        }),
-
-        ownerName,
-        ownerPhone,
-        ownerEmail,
-        emergencyContact,
-        microchipId,
-        medicalConditions,
-        specialInstructions,
-      };
-
-      await reportPet(payload, photoFile);
+          ownerName,
+          ownerPhone,
+          ownerEmail,
+          emergencyContact,
+          microchipId,
+          medicalConditions,
+          specialInstructions,
+        },
+        newPhotos // File[]
+      );
 
       setToast({ type: "success", text: "Profile updated successfully" });
       setTimeout(() => router.push("/my-pet"), 1200);
@@ -186,98 +144,57 @@ export default function EditPetProfile() {
     }
   };
 
-  if (loading) {
-    return <div className="p-10 text-center">Loading…</div>;
-  }
+  if (loading) return <div className="p-10 text-center">Loading…</div>;
 
   /* ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-12">
       {toast && (
-        <div
-          className={`
-      fixed top-20 left-1/2 -translate-x-1/2 z-50
-      px-6 py-3 rounded-xl text-sm text-white
-      shadow-md
-      ${toast.type === "success"
-              ? "bg-green-500/90"
-              : "bg-red-500/90"}
-    `}
-        >
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
           {toast.text}
         </div>
       )}
 
-
-      <div className="
-  max-w-2xl mx-auto
-  bg-white
-  rounded-2xl
-  shadow-[0_8px_30px_rgba(0,0,0,0.06)]
-  border border-gray-200
-  p-10 space-y-10
-">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow p-10 space-y-10">
         <h1 className="text-2xl font-semibold">Edit Pet Profile</h1>
 
-        {/* PHOTO */}
+        {/* THUMBNAIL */}
         <div>
-          <p className="text-sm font-medium mb-2">Pet Photo</p>
+          <p className="text-sm font-medium mb-2">Pet Thumbnail</p>
+          <img src={thumbnailUrl} className="w-24 h-24 rounded-full object-cover border" />
+        </div>
 
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
-            {hasPhoto ? (
-              <>
+        {/* PHOTO GALLERY */}
+        <div>
+          <p className="text-sm font-medium mb-2">Photo Gallery (max 5)</p>
+          <div className="grid grid-cols-3 gap-4">
+            {newPhotos.map((file, idx) => (
+              <div key={idx} className="relative">
                 <img
-                  src={
-                    previewPhotoUrl
-                      ? previewPhotoUrl
-                      : resolvePhotoUrl(serverPhotoUrl)
-                  }
-                  className="mx-auto w-40 h-40 object-cover rounded-xl"
-                  alt="Pet photo"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
+                  src={URL.createObjectURL(file)}
+                  className="w-full h-32 object-cover rounded-lg"
                 />
+                <button
+                  onClick={() => removePhoto(idx)}
+                  className="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
 
-                <div className="flex justify-center gap-4 mt-3">
-                  <label className="text-green-600 cursor-pointer text-sm">
-                    Replace
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) =>
-                        onSelectPhoto(e.target.files[0])
-                      }
-                    />
-
-
-                  </label>
-
-                  <button
-                    onClick={deletePhoto}
-                    className="text-red-500 text-sm"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </>
-            ) : (
-              <label className="cursor-pointer text-gray-400">
-                <div className="text-sm">
-                  No photo uploaded yet
-                </div>
-                <div className="text-xs mt-1">
-                  Click to upload a pet photo
-                </div>
-
+            {newPhotos.length < MAX_PHOTOS && (
+              <label className="flex items-center justify-center h-32 border-2 border-dashed rounded-lg cursor-pointer text-gray-400">
+                + Add
                 <input
                   type="file"
                   accept="image/*"
-                  hidden
-                  onChange={(e) =>
-                    onSelectPhoto(e.target.files[0])
-                  }
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) addPhoto(file);
+                    e.target.value = "";
+                  }}
                 />
               </label>
             )}
@@ -292,6 +209,7 @@ export default function EditPetProfile() {
           <Select label="Gender" value={gender} set={setGender} options={["Male", "Female", "Unknown"]} />
           <Select label="Size" value={size} set={setSize} options={["Small", "Medium", "Large"]} />
           <Input label="Primary Color" value={primaryColor} set={setPrimaryColor} />
+          <Textarea label="Distinctive Features" value={distinctiveFeatures} set={setDistinctiveFeatures} />
         </Section>
 
         {/* REPORT DETAILS */}
@@ -300,8 +218,8 @@ export default function EditPetProfile() {
           {reportType === "LOST" && (
             <>
               <Input label="Last Seen Location" value={lastSeenLocation} set={setLastSeenLocation} />
-              <Input label="Last Seen Date" type="date" value={lastSeenDate} set={setLastSeenDate} />
-              <Input label="Last Seen Time" type="time" value={lastSeenTime} set={setLastSeenTime} />
+              <Input type="date" label="Last Seen Date" value={lastSeenDate} set={setLastSeenDate} />
+              <Input type="time" label="Last Seen Time" value={lastSeenTime} set={setLastSeenTime} />
               <Textarea label="Circumstances" value={circumstances} set={setCircumstances} />
             </>
           )}
@@ -318,19 +236,9 @@ export default function EditPetProfile() {
         {/* MEDICAL */}
         <button
           onClick={() => setShowMedical(!showMedical)}
-          className="
-    text-sm
-    font-medium
-    text-gray-900
-    inline-flex items-center gap-1
-    hover:underline
-    focus:outline-none
-  "
+          className="text-sm font-medium hover:underline"
         >
           {showMedical ? "Hide" : "Show"} Medical & Identification
-          <span className="text-gray-500">
-            {showMedical ? "▴" : "▾"}
-          </span>
         </button>
 
         {showMedical && (
@@ -343,19 +251,8 @@ export default function EditPetProfile() {
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4">
-          <button onClick={() => router.back()} className="text-gray-500">
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="
-  bg-[#fe9e3c] hover:bg-[#f38f22]
-  text-white
-  px-6 py-2.5
-  rounded-lg
-  transition
-"
-          >
+          <button onClick={() => router.back()} className="text-gray-500">Cancel</button>
+          <button onClick={handleSave} className="bg-[#fe9e3c] text-white px-6 py-2.5 rounded-lg">
             Save Profile
           </button>
         </div>
@@ -364,18 +261,13 @@ export default function EditPetProfile() {
   );
 }
 
-/* ---------- COMPONENTS ---------- */
+/* ---------- UI COMPONENTS ---------- */
 
 function Section({ title, children }) {
   return (
     <div className="space-y-4">
-      {title && <h2 className="text-sm font-semibold text-gray-900 tracking-wide">
-        {title.toUpperCase()}
-      </h2>
-      }
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        {children}
-      </div>
+      {title && <h2 className="text-sm font-semibold">{title.toUpperCase()}</h2>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">{children}</div>
     </div>
   );
 }
@@ -387,11 +279,9 @@ function Input({ label, value, set, type = "text" }) {
         type={type}
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border border-gray-300 focus:border-gray-900 focus:ring-0 outline-none"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">
-        {label}
-      </label>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
     </div>
   );
 }
@@ -402,16 +292,12 @@ function Select({ label, value, set, options }) {
       <select
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border border-gray-300 focus:border-gray-900 focus:ring-0 outline-none bg-white"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border bg-white"
       >
         <option value="NA">Not Applicable</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>{opt}</option>
-        ))}
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
-      <label className="absolute left-4 top-2 text-xs text-gray-400">
-        {label}
-      </label>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
     </div>
   );
 }
@@ -422,11 +308,9 @@ function Textarea({ label, value, set }) {
       <textarea
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border border-gray-300 min-h-[110px] focus:ring-2 focus:ring-green-300 outline-none"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border min-h-[110px]"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">
-        {label}
-      </label>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
     </div>
   );
 }
