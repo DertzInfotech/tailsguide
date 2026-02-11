@@ -1,97 +1,141 @@
 'use client'
 
+import { useState } from "react";
+
 export default function PetCard({ pet, imageUrl }) {
+  const [loading, setLoading] = useState(false);
+
   const daysMissing = Math.floor(
     (new Date() - new Date(pet.lastSeenDate)) / (1000 * 60 * 60 * 24)
   );
 
+  const FLYER_URL = `http://64.225.84.126:8084/api/v1/pet/${pet.id}/flyer-pdf`;
+
+  const isLost = pet.reportType === "LOST";
+  const isRecentlyFound = !isLost && daysMissing <= 3;
+
   return (
     <div
       className={`
-        flex items-center gap-4 p-4 rounded-lg border-2 mb-4 transition
-        ${pet.reportType === "LOST" ? "border-red-500 bg-red-50" : "border-green-500 bg-green-50"}
+        group relative overflow-hidden
+        flex gap-4 p-4 mb-4 rounded-xl
+        border transition-all duration-300
+        ${isLost
+          ? "border-red-500/40 bg-red-50/60"
+          : "border-emerald-500/40 bg-emerald-50/60"}
+        ${isRecentlyFound
+          ? "ring-2 ring-emerald-400/60 shadow-emerald-500/30"
+          : ""}
+        hover:shadow-xl
       `}
     >
-      {/* Thumbnail */}
-     <img
-  src={imageUrl || "/placeholder-pet.png"}
-  alt={pet.petName || "Pet"}
-  className="w-20 h-20 rounded-md object-cover"
-/>
+      {/* Status strip */}
+      <div
+        className={`absolute left-0 top-0 h-full w-1 ${
+          isLost ? "bg-red-500" : "bg-emerald-500"
+        }`}
+      />
 
-      {/* Info Section */}
-      <div className="flex-1">
-        <h4 className="text-gray-800 mb-2 font-semibold text-lg">
-          {pet.petName || "Unknown"}
-        </h4>
-
-        <p className="text-gray-600 text-sm mb-1">
-          <i className="fas fa-map-marker-alt mr-1"></i>
-          {pet.lastSeenLocation}
-        </p>
-
-        <p className="text-gray-600 text-sm">
-          <i className="fas fa-clock mr-1"></i>
-          {pet.reportType === "LOST"
-            ? `Missing for ${daysMissing} days`
-            : `Found ${daysMissing} days ago`}
-        </p>
-
-        {/* Tags */}
-        <div className="flex gap-2 mt-2">
-          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-            Medical Needs
-          </span>
-
-          <span
-            className={`
-              px-2 py-1 rounded text-xs
-              ${pet.reportType === "LOST"
-                ? "bg-red-100 text-red-700"
-                : "bg-green-100 text-green-700"}
-            `}
-          >
-            {pet.reportType}
-          </span>
+      {/* Image + badge */}
+      <div className="relative shrink-0">
+        <div className="w-16 h-16 rounded-full overflow-hidden">
+          <img
+            src={imageUrl}
+            alt={pet.petName}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            onError={(e) => {
+              e.currentTarget.src = "/dog-default.png";
+            }}
+          />
         </div>
+
+        <span
+          className={`
+            absolute -bottom-2 -right-2
+            px-2 py-0.5 rounded-full text-[10px] font-semibold shadow-md
+            ${isLost ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}
+          `}
+        >
+          {pet.reportType}
+        </span>
       </div>
 
-      {/* Button */}
-      <button
-        onClick={() => onDownload(pet.id)}
-        className="
-          bg-orange-500 hover:bg-orange-600 text-white
-          px-3 py-1 rounded-md text-sm
-        "
-      >
-        Download Flyer
-      </button>
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between gap-2">
+          <h4 className="font-semibold text-gray-900 truncate">
+            {pet.petName || "Unknown"}
+          </h4>
+
+          <span className="text-xs px-2 py-1 rounded-full bg-black/5">
+            {isLost ? `${daysMissing}d missing` : `${daysMissing}d ago`}
+          </span>
+        </div>
+
+        <p className="text-sm text-gray-600 truncate mt-1">
+          📍 {pet.lastSeenLocation}
+        </p>
+
+        {isRecentlyFound && (
+          <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+            Recently Found 🎉
+          </span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col gap-2 justify-center">
+        <button
+          disabled={loading}
+          onClick={() => downloadFlyer(FLYER_URL, pet.id, setLoading)}
+          className={`
+            px-3 py-1.5 rounded-md text-xs font-medium text-white
+            ${loading
+              ? "bg-orange-300 cursor-not-allowed"
+              : "bg-orange-500 hover:bg-orange-600"}
+          `}
+        >
+          {loading ? "Downloading…" : "Flyer"}
+        </button>
+
+        <button
+          onClick={() => previewFlyer(FLYER_URL)}
+          className="text-xs text-orange-600 hover:underline"
+        >
+          Preview
+        </button>
+      </div>
     </div>
   );
 }
 
-// Flyer download logic
-async function onDownload(petId) {
+/* ================= HELPERS ================= */
+
+async function downloadFlyer(url, petId, setLoading) {
   try {
-    const response = await fetch(
-      `https://tailsguide-production-53f0.up.railway.app/api/v1/pet/${petId}/flyer-pdf`
-    );
+    setLoading(true);
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const fileUrl = URL.createObjectURL(blob);
 
-    const blob = await response.blob();
+    const a = document.createElement("a");
+    a.href = fileUrl;
+    a.download = `flyer-pet-${petId}.pdf`;
+    a.click();
+    URL.revokeObjectURL(fileUrl);
+  } catch {
+    alert("Unable to download flyer.");
+  } finally {
+    setLoading(false);
+  }
+}
 
-    if (response.ok) {
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `flyer-pet-${petId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-  } catch (err) {
-    console.error("Error downloading flyer:", err);
+async function previewFlyer(url) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    window.open(URL.createObjectURL(blob), "_blank");
+  } catch {
+    alert("Unable to preview flyer.");
   }
 }

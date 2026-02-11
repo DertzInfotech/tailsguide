@@ -333,3 +333,69 @@ header>nav {
   height: 100%;
   border-radius: 1rem;
 }
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fadeUp {
+  animation: fadeUp 0.45s ease-out;
+}
+@keyframes toast {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-toast {
+  animation: toast 0.3s ease-out;
+}
+
+/* Hide scrollbar but keep scroll */
+.hide-scrollbar {
+  scrollbar-width: none;        
+  -ms-overflow-style: none;     
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;               
+}
+
+/* Active Alerts scroll container */
+.alerts-scroll {
+  max-height: 430px;       
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+/* Smooth scrolling */
+.alerts-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Clean scrollbar (optional but matches your UI) */
+.alerts-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.alerts-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+}
+
+.alerts-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+

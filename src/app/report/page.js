@@ -99,6 +99,7 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
+
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
@@ -336,7 +337,10 @@ export default function ReportPage() {
         )}
 
         {reportType === 'found' && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
+          <form
+            className="bg-white rounded-2xl shadow-xl p-8"
+            onSubmit={(e) => e.preventDefault()}
+          >
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
 
             <div className="mb-6">

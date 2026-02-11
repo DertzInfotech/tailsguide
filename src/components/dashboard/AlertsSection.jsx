@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBell } from "@fortawesome/free-solid-svg-icons";
@@ -11,77 +11,65 @@ export default function AlertsSection({
   loading,
   onPageChange
 }) {
-  const mockAlerts = [
-    { id: 1, name: "Buddy", type: "Dog", location: "Indiranagar, Bengaluru", time: "2h ago" },
-    { id: 2, name: "Milo", type: "Cat", location: "Andheri West, Mumbai", time: "5h ago" },
-    { id: 3, name: "Luna", type: "Dog", location: "Sector 62, Noida", time: "Yesterday" },
-  ];
-
   return (
     <div
-      className="rounded-2xl p-5 sm:p-7 glass-card orange-card
-      transition-all duration-300 ease-out
-      hover:-translate-y-1"
+      className="
+        relative overflow-hidden
+        rounded-2xl p-5 sm:p-7
+        glass-card orange-card
+        transition-all duration-300 ease-out
+        hover:-translate-y-1 hover:shadow-2xl
+      "
     >
+      {/* 🔴 Subtle background glow */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-orange-500/10 via-transparent to-transparent" />
 
-      <div className="flex items-center gap-4 mb-2">
-        <FontAwesomeIcon
-          icon={faBell}
-          className="text-2xl"
-        />
-        <h2 className="text-2xl font-extrabold tracking-tight">
-          Active Alerts
-        </h2>
-      </div>
+      {/* Header */}
+      <div className="relative flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4">
+          {/* Icon with pulse */}
+          <div className="relative">
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 animate-ping" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500" />
+            <FontAwesomeIcon
+              icon={faBell}
+              className="text-2xl text-red-500"
+            />
+          </div>
 
-      <p className="text-sm mb-5">
-        Real-time reports from the community
-      </p>
-
-      {!loading && pets.length === 0 ? (
-        <div
-          className="relative h-48 overflow-hidden scroll-pause"
-          onTouchStart={(e) => {
-            e.currentTarget
-              .querySelector('.animate-scroll-y')
-              ?.classList.add('scroll-paused');
-          }}
-          onTouchEnd={(e) => {
-            e.currentTarget
-              .querySelector('.animate-scroll-y')
-              ?.classList.remove('scroll-paused');
-          }}
-        >
-          <div className="absolute inset-0 animate-scroll-y">
-            {[...mockAlerts, ...mockAlerts].map((alert, idx) => (
-              <div
-                key={idx}
-                className="bg-[#fee2c0] rounded-xl p-4 mb-3 flex justify-between items-center shadow-sm"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">
-                    {alert.name} · {alert.type}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    Last seen in {alert.location}
-                  </p>
-                </div>
-                <span className="text-xs font-medium text-orange-600">
-                  {alert.time}
-                </span>
-              </div>
-            ))}
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight">
+              Active Alerts
+            </h2>
+            <p className="text-sm opacity-80">
+              Real-time reports from the community
+            </p>
           </div>
         </div>
-      ) : (
+
+        {/* LIVE badge */}
+        <span className="
+          flex items-center gap-2
+          rounded-full px-3 py-1
+          text-xs font-semibold
+          bg-red-500/15 text-red-600
+        ">
+          <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+          LIVE
+        </span>
+      </div>
+
+      {/* 🔑 SCROLL AREA – ONLY ALERT CARDS */}
+      <div className="alerts-scroll relative space-y-3">
         <PetList
           pets={pets}
           currentPage={currentPage}
           totalPages={totalPages}
           loading={loading}
           onPageChange={onPageChange}
+          hidePagination
         />
-      )}
+      </div>
     </div>
   );
 }

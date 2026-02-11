@@ -4,34 +4,55 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getMyPets, reportPet } from "@/api/petApi";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const MAX_PHOTOS = 5;
+
 export default function EditPetProfile() {
   const { id } = useParams();
   const router = useRouter();
 
-  const [pet, setPet] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [pet, setPet] = useState(null);
 
+  /* ---------- PET DETAILS ---------- */
+  const [petName, setPetName] = useState("");
+  const [breed, setBreed] = useState("");
+  const [age, setAge] = useState("");
   const [gender, setGender] = useState("");
   const [size, setSize] = useState("");
   const [primaryColor, setPrimaryColor] = useState("");
   const [distinctiveFeatures, setDistinctiveFeatures] = useState("");
+
+  /* ---------- REPORT DETAILS ---------- */
+  const [reportType, setReportType] = useState("LOST");
   const [lastSeenLocation, setLastSeenLocation] = useState("");
+  const [lastSeenDate, setLastSeenDate] = useState("");
+  const [lastSeenTime, setLastSeenTime] = useState("");
+  const [circumstances, setCircumstances] = useState("");
+
+  /* ---------- OWNER ---------- */
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
+  const [emergencyContact, setEmergencyContact] = useState("");
 
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  /* ---------- MEDICAL ---------- */
+  const [microchipId, setMicrochipId] = useState("");
+  const [medicalConditions, setMedicalConditions] = useState("");
+  const [specialInstructions, setSpecialInstructions] = useState("");
+  const [showMedical, setShowMedical] = useState(false);
 
-  /* ---------------- FETCH PET ---------------- */
+  /* ---------- MEDIA ---------- */
+  const [thumbnailUrl, setThumbnailUrl] = useState(null);
+  const [newPhotos, setNewPhotos] = useState([]); // File[]
 
+  /* ---------- LOAD PET ---------- */
   useEffect(() => {
     const fetchPet = async () => {
       try {
         const res = await getMyPets();
-        const found = res.data.find(
-          (p) => String(p.id) === String(id)
-        );
+        const found = res.data.find(p => String(p.id) === String(id));
 
         if (!found) {
           router.push("/my-pet");
@@ -39,14 +60,31 @@ export default function EditPetProfile() {
         }
 
         setPet(found);
+
+        setPetName(found.petName || "");
+        setBreed(found.breed || "");
+        setAge(found.age || "");
         setGender(found.gender || "");
         setSize(found.size || "");
         setPrimaryColor(found.primaryColor || "");
         setDistinctiveFeatures(found.distinctiveFeatures || "");
+
+        setReportType(found.reportType || "LOST");
         setLastSeenLocation(found.lastSeenLocation || "");
+        setLastSeenDate(found.lastSeenDate || "");
+        setLastSeenTime(found.lastSeenTime || "");
+        setCircumstances(found.circumstances || "");
+
         setOwnerName(found.ownerName || "");
         setOwnerPhone(found.ownerPhone || "");
-        setPhotoPreview(found.photoUrl || null);
+        setOwnerEmail(found.ownerEmail || "");
+        setEmergencyContact(found.emergencyContact || "");
+
+        setMicrochipId(found.microchipId || "");
+        setMedicalConditions(found.medicalConditions || "");
+        setSpecialInstructions(found.specialInstructions || "");
+
+        setThumbnailUrl(`${API_BASE}/api/v1/pet/${id}/thumbnail`);
       } catch (err) {
         console.error(err);
         setToast({ type: "error", text: "Failed to load pet details" });
@@ -58,37 +96,45 @@ export default function EditPetProfile() {
     fetchPet();
   }, [id, router]);
 
-  /* ---------------- SAVE ---------------- */
+  /* ---------- PHOTO HANDLERS (FRONTEND ONLY) ---------- */
+  const addPhoto = (file) => {
+    if (!file) return;
+    if (newPhotos.length >= MAX_PHOTOS) return;
+    setNewPhotos(prev => [...prev, file]);
+  };
 
+  const removePhoto = (index) => {
+    setNewPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  /* ---------- SAVE ---------- */
   const handleSave = async () => {
-    if (!pet?.id) return;
-
     try {
-      const payload = {
-        id: pet.id, 
-        petName: pet.petName,
-        breed: pet.breed,
-        age: pet.age ?? null,
-        gender,
-        size,
-        primaryColor,
-        distinctiveFeatures,
-        reportType: pet.reportType || "LOST",
-        lastSeenLocation,
-        lastSeenDate: pet.lastSeenDate ?? null,
-        lastSeenTime: pet.lastSeenTime ?? null,
-        circumstances: pet.circumstances ?? null,
-        ownerName,
-        ownerPhone,
-        ownerEmail: pet.ownerEmail ?? null,
-        emergencyContact: pet.emergencyContact ?? null,
-        microchipId: pet.microchipId ?? null,
-        medicalConditions: pet.medicalConditions ?? null,
-        specialInstructions: pet.specialInstructions ?? null,
-      };
-
-      // 🔥 DATA + PHOTO TOGETHER 
-      await reportPet(payload, photoFile);
+      await reportPet(
+        {
+          id: pet.id,
+          petName,
+          breed,
+          age,
+          gender,
+          size,
+          primaryColor,
+          distinctiveFeatures,
+          reportType,
+          lastSeenLocation,
+          lastSeenDate,
+          lastSeenTime,
+          circumstances,
+          ownerName,
+          ownerPhone,
+          ownerEmail,
+          emergencyContact,
+          microchipId,
+          medicalConditions,
+          specialInstructions,
+        },
+        newPhotos // File[]
+      );
 
       setToast({ type: "success", text: "Profile updated successfully" });
       setTimeout(() => router.push("/my-pet"), 1200);
@@ -98,99 +144,115 @@ export default function EditPetProfile() {
     }
   };
 
-  if (loading) {
-    return <div className="p-10 text-center">Loading…</div>;
-  }
+  if (loading) return <div className="p-10 text-center">Loading…</div>;
 
-  /* ---------------- UI ---------------- */
-
+  /* ---------- UI ---------- */
   return (
-    <div className="min-h-screen bg-[#faf7f2] px-4 py-12">
+    <div className="min-h-screen bg-gray-50 px-4 py-12">
       {toast && (
-        <div
-          className={`fixed top-20 left-1/2 -translate-x-1/2 z-50
-          px-6 py-3 rounded-xl text-sm text-white shadow-lg
-          ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}
-        >
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
           {toast.text}
         </div>
       )}
 
-      <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl p-8 space-y-8">
-        <h1 className="text-2xl font-semibold text-gray-800">
-          Edit Pet Profile
-        </h1>
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow p-10 space-y-10">
+        <h1 className="text-2xl font-semibold">Edit Pet Profile</h1>
 
-        {/* PHOTO */}
+        {/* THUMBNAIL */}
         <div>
-          <p className="text-sm font-medium mb-2">Pet Photo</p>
-          <label className="block border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer hover:border-green-400 transition">
-            {photoPreview ? (
-              <img
-                src={photoPreview}
-                alt="Pet"
-                className="mx-auto w-40 h-40 object-cover rounded-xl"
-              />
-            ) : (
-              <span className="text-gray-400">
-                Click to upload or replace photo
-              </span>
+          <p className="text-sm font-medium mb-2">Pet Thumbnail</p>
+          <img src={thumbnailUrl} className="w-24 h-24 rounded-full object-cover border" />
+        </div>
+
+        {/* PHOTO GALLERY */}
+        <div>
+          <p className="text-sm font-medium mb-2">Photo Gallery (max 5)</p>
+          <div className="grid grid-cols-3 gap-4">
+            {newPhotos.map((file, idx) => (
+              <div key={idx} className="relative">
+                <img
+                  src={URL.createObjectURL(file)}
+                  className="w-full h-32 object-cover rounded-lg"
+                />
+                <button
+                  onClick={() => removePhoto(idx)}
+                  className="absolute top-1 right-1 bg-red-500 text-white text-xs px-2 rounded"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+
+            {newPhotos.length < MAX_PHOTOS && (
+              <label className="flex items-center justify-center h-32 border-2 border-dashed rounded-lg cursor-pointer text-gray-400">
+                + Add
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) addPhoto(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                setPhotoFile(file);
-                setPhotoPreview(URL.createObjectURL(file));
-              }}
-            />
-          </label>
+          </div>
         </div>
 
-        {/* DETAILS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <Input label="Gender" value={gender} set={setGender} />
-          <Input label="Size" value={size} set={setSize} />
-          <Input
-            label="Primary Color"
-            value={primaryColor}
-            set={setPrimaryColor}
-          />
-          <Input
-            label="Last Seen Location"
-            value={lastSeenLocation}
-            set={setLastSeenLocation}
-          />
-        </div>
+        {/* PET DETAILS */}
+        <Section title="Pet Details">
+          <Input label="Pet Name" value={petName} set={setPetName} />
+          <Input label="Breed" value={breed} set={setBreed} />
+          <Select label="Age" value={age} set={setAge} options={["Puppy", "Adult", "Senior"]} />
+          <Select label="Gender" value={gender} set={setGender} options={["Male", "Female", "Unknown"]} />
+          <Select label="Size" value={size} set={setSize} options={["Small", "Medium", "Large"]} />
+          <Input label="Primary Color" value={primaryColor} set={setPrimaryColor} />
+          <Textarea label="Distinctive Features" value={distinctiveFeatures} set={setDistinctiveFeatures} />
+        </Section>
 
-        <Textarea
-          label="Distinctive Features"
-          value={distinctiveFeatures}
-          set={setDistinctiveFeatures}
-        />
+        {/* REPORT DETAILS */}
+        <Section title="Report Details">
+          <Select label="Report Type" value={reportType} set={setReportType} options={["LOST", "FOUND"]} />
+          {reportType === "LOST" && (
+            <>
+              <Input label="Last Seen Location" value={lastSeenLocation} set={setLastSeenLocation} />
+              <Input type="date" label="Last Seen Date" value={lastSeenDate} set={setLastSeenDate} />
+              <Input type="time" label="Last Seen Time" value={lastSeenTime} set={setLastSeenTime} />
+              <Textarea label="Circumstances" value={circumstances} set={setCircumstances} />
+            </>
+          )}
+        </Section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* OWNER */}
+        <Section title="Owner & Contact">
           <Input label="Owner Name" value={ownerName} set={setOwnerName} />
           <Input label="Owner Phone" value={ownerPhone} set={setOwnerPhone} />
-        </div>
+          <Input label="Owner Email" value={ownerEmail} set={setOwnerEmail} />
+          <Input label="Emergency Contact" value={emergencyContact} set={setEmergencyContact} />
+        </Section>
+
+        {/* MEDICAL */}
+        <button
+          onClick={() => setShowMedical(!showMedical)}
+          className="text-sm font-medium hover:underline"
+        >
+          {showMedical ? "Hide" : "Show"} Medical & Identification
+        </button>
+
+        {showMedical && (
+          <Section>
+            <Input label="Microchip ID" value={microchipId} set={setMicrochipId} />
+            <Textarea label="Medical Conditions" value={medicalConditions} set={setMedicalConditions} />
+            <Textarea label="Special Instructions" value={specialInstructions} set={setSpecialInstructions} />
+          </Section>
+        )}
 
         {/* ACTIONS */}
         <div className="flex justify-between pt-4">
-          <button
-            onClick={() => router.back()}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={handleSave}
-            className="bg-green-500 hover:bg-green-600
-            text-white px-6 py-2.5 rounded-xl shadow"
-          >
+          <button onClick={() => router.back()} className="text-gray-500">Cancel</button>
+          <button onClick={handleSave} className="bg-[#fe9e3c] text-white px-6 py-2.5 rounded-lg">
             Save Profile
           </button>
         </div>
@@ -199,36 +261,56 @@ export default function EditPetProfile() {
   );
 }
 
-/* ---------------- COMPONENTS ---------------- */
+/* ---------- UI COMPONENTS ---------- */
 
-function Input({ label, value, set }) {
+function Section({ title, children }) {
+  return (
+    <div className="space-y-4">
+      {title && <h2 className="text-sm font-semibold">{title.toUpperCase()}</h2>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">{children}</div>
+    </div>
+  );
+}
+
+function Input({ label, value, set, type = "text" }) {
   return (
     <div className="relative">
       <input
+        type={type}
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border border-gray-300
-        focus:ring-2 focus:ring-green-300 outline-none"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">
-        {label}
-      </label>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
+    </div>
+  );
+}
+
+function Select({ label, value, set, options }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => set(e.target.value)}
+        className="w-full px-4 pt-6 pb-2 rounded-xl border bg-white"
+      >
+        <option value="NA">Not Applicable</option>
+        {options.map(o => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
     </div>
   );
 }
 
 function Textarea({ label, value, set }) {
   return (
-    <div className="relative">
+    <div className="relative sm:col-span-2">
       <textarea
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border border-gray-300
-        min-h-[110px] focus:ring-2 focus:ring-green-300 outline-none"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border min-h-[110px]"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">
-        {label}
-      </label>
+      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
     </div>
   );
 }

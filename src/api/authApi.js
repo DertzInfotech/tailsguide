@@ -10,7 +10,7 @@ export const loginUser = async (data) => {
   const response = await api.post("/auth/authenticate", data);
 
   // save JWT token
-  localStorage.setItem("token", response.data.token);
+  localStorage.setItem("tailsToken", response.data.token);
 
   return response.data;
 };
