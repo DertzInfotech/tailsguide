@@ -3,7 +3,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import StoryList from "@/features/pets/StoryList";
-import AnimatedCounter from "@/components/ui/AnimatedCounter";
+import AnimatedCounter from "@/components/UI/AnimatedCounter";
 
 export default function SuccessStoriesSection({ count }) {
   return (

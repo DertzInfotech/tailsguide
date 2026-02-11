@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePets } from "@/lib/api-client";
-import FadeIn from "@/components/ui/FadeIn";
+import FadeIn from "@/components/UI/FadeIn";
 import HeroSection from "@/components/dashboard/HeroSection";
 import dynamic from "next/dynamic";
 import ReportsOverviewSection from "@/components/dashboard/ReportsOverviewSection";
