@@ -69,7 +69,7 @@ export default function ScanPetPage() {
       setSubmitting(true);
 
       const res = await fetch(
-        `http://64.225.84.126:8084/api/v1/pet/${id}/scan`,
+        `/api/v1/pet/${id}/scan`,
         {
           method: 'POST',
           headers: {
