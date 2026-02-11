@@ -9,7 +9,7 @@ export default function PetCard({ pet, imageUrl }) {
     (new Date() - new Date(pet.lastSeenDate)) / (1000 * 60 * 60 * 24)
   );
 
-  const FLYER_URL = `http://64.225.84.126:8084/api/v1/pet/${pet.id}/flyer-pdf`;
+  const FLYER_URL = `/api/v1/pet/${pet.id}/flyer-pdf`;
 
   const isLost = pet.reportType === "LOST";
   const isRecentlyFound = !isLost && daysMissing <= 3;

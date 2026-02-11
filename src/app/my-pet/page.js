@@ -109,7 +109,7 @@ export default function MyPets() {
       setQrPetName(pet.petName);
 
       const res = await fetch(
-        `http://64.225.84.126:8084/api/v1/pet/${pet.id}/collar-qr`
+        `/api/v1/pet/${pet.id}/collar-qr`
       );
 
       if (!res.ok) throw new Error("QR generation failed");
@@ -149,7 +149,7 @@ export default function MyPets() {
           const missing = getMissingProfileFields(pet);
           const isComplete = missing.length === 0;
 
-          const thumbnailUrl = `http://64.225.84.126:8084/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
+          const thumbnailUrl = `/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
 
           return (
             <div

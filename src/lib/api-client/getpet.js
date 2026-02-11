@@ -12,7 +12,7 @@ export function usePets(page = 0) {
       setLoading(true);
       try {
         const res = await fetch(
-          `http://64.225.84.126:8084/api/v1/pet/all?page=0&size=10&sortBy=lastSeenDate&sortDirection=desc`
+          `/api/v1/pet/all?page=0&size=10&sortBy=lastSeenDate&sortDirection=desc`
         );
         const json = await res.json();
 

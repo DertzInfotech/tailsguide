@@ -46,7 +46,7 @@ export default function PetList({
           <PetCard
             key={pet.id}
             pet={pet}
-            imageUrl={`http://64.225.84.126:8084/api/v1/pet/${pet.id}/thumbnail`}
+            imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
           />
         ))}
       </div>
