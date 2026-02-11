@@ -3,7 +3,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { heroStatsInfo, mainTilesInfo } from "@/app/info";
 import Link from "next/link";
-import CountUp from "@/components/ui/CountUp";
+import CountUp from "@/components/UI/CountUp";
 
 export default function HeroSection() {
   return (
