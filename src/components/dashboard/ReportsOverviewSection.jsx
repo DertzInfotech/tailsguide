@@ -1,6 +1,6 @@
 'use client';
 
-import FadeIn from "@/components/ui/FadeIn";
+import FadeIn from "@/components/UI/FadeIn";
 import Link from "next/link";
 import { useState } from "react";
 import { usePets } from "@/lib/api-client";
