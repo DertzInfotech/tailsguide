@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import Notification from "@/shared/Notification";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { forgotPassword } from "@/api/authApi";
+
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
