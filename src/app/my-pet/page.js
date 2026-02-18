@@ -149,7 +149,9 @@ export default function MyPets() {
           const missing = getMissingProfileFields(pet);
           const isComplete = missing.length === 0;
 
-          const thumbnailUrl = `/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
+          const thumbnailUrl = pet.thumbnailUrl
+            ? `/api/v1${pet.thumbnailUrl.startsWith("/") ? pet.thumbnailUrl : `/${pet.thumbnailUrl}`}?ts=${pet.updatedAt || Date.now()}`
+            : `/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
 
           return (
             <div

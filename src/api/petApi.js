@@ -1,6 +1,6 @@
 import api from "./axiosInstance";
 
-export const reportPet = (petData, photoFile = null) => {
+export const reportPet = (petData, photoFile = null, additionalPhotos = []) => {
   const formData = new FormData();
 
   formData.append(
@@ -10,8 +10,18 @@ export const reportPet = (petData, photoFile = null) => {
     })
   );
 
+  // Primary photo (required for thumbnail/primary display)
   if (photoFile instanceof File) {
     formData.append("photo", photoFile);
+  }
+
+  // Additional photos (up to 4 more, max 5 total)
+  if (Array.isArray(additionalPhotos)) {
+    additionalPhotos.forEach((file) => {
+      if (file instanceof File) {
+        formData.append("photo", file); // Multiple files with same field name
+      }
+    });
   }
 
   return api.post("/pet/report", formData, {
@@ -51,3 +61,7 @@ export const getPetCollarQr = (id) =>
 
 export const deletePet = (id) =>
   api.delete(`/pet/${id}`);
+
+/** Delete a single media item (photo) by mediaId */
+export const deletePetMedia = (mediaId) =>
+  api.delete(`/pet/media/${mediaId}`);
