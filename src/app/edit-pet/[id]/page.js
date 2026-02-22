@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getMyPets, reportPet, deletePetMedia } from "@/api/petApi";
+import { getMyPets, deletePetMedia } from "@/api/petApi";
+import { submitReport } from "@/lib/api-client";
 import { useObjectDetection } from "@/utils/useObjectDetection";
 
 const MAX_PHOTOS = 5;
 
-/** Thumbnail URL via app rewrite (same-origin, no CORS) */
+/** Thumbnail URL via app */
 const getThumbnailUrl = (petId) => `/api/v1/pet/${petId}/thumbnail`;
-/** Image URL for media: use app proxy for same-origin */
+/** Image URL for media */
 const getMediaImageUrl = (urlOrPath) => {
   if (!urlOrPath) return null;
   if (urlOrPath.startsWith("http")) return urlOrPath;
@@ -231,43 +232,67 @@ export default function EditPetProfile() {
     }
   };
 
-  /* ---------- SAVE ---------- */
+  /* ---------- SAVE (same API as report page: petDTO + photos) ---------- */
   const handleSave = async () => {
     try {
-      // Get additional photos (all photos except the primary one)
-      const additionalPhotos = newPhotos.filter((_, idx) => idx !== primaryPhotoIndex);
+      const petDTO = {
+        id: pet.id,
+        petName,
+        petType,
+        breed,
+        age,
+        gender,
+        size,
+        primaryColor,
+        distinctiveFeatures,
+        reportType,
+        lastSeenLocation,
+        lastSeenDate,
+        lastSeenTime,
+        circumstances,
+        ownerName,
+        ownerPhone,
+        ownerEmail,
+        emergencyContact,
+        microchipId,
+        veterinarian,
+        medicalConditions,
+        specialInstructions,
+        // Tell backend which existing media to keep (avoids "orphan deletion" error when updating)
+        existingMediaIds: existingMedia.map((m) => m.id),
+      };
 
-      await reportPet(
-        {
-          id: pet.id,
-          petName,
-          petType,
-          breed,
-          age,
-          gender,
-          size,
-          primaryColor,
-          distinctiveFeatures,
-          reportType,
-          lastSeenLocation,
-          lastSeenDate,
-          lastSeenTime,
-          circumstances,
-          ownerName,
-          ownerPhone,
-          ownerEmail,
-          emergencyContact,
-          microchipId,
-          veterinarian,
-          medicalConditions,
-          specialInstructions,
-        },
-        primaryPhotoFile, // File (primary) | null
-        additionalPhotos // File[] (additional photos, max 4 more)
-      );
+      const formData = new FormData();
+      formData.append("petDTO", new Blob([JSON.stringify(petDTO)], { type: "application/json" }));
 
-      setToast({ type: "success", text: "Profile updated successfully" });
-      setTimeout(() => router.push("/my-pet"), 1200);
+      // Build photos array: primary first, then the rest (same as report page uses "photos")
+      const photosToSend = [];
+      if (primaryPhotoFile) photosToSend.push(primaryPhotoFile);
+      newPhotos.forEach((file, idx) => {
+        if (idx !== primaryPhotoIndex && file instanceof File) photosToSend.push(file);
+      });
+      photosToSend.forEach((file) => {
+        formData.append("photos", file, file.name || "photo.jpg");
+      });
+
+      console.log("formData", formData )
+      const result = await submitReport({
+        method: "POST",
+        body: formData,
+      });
+
+      if (result.response.ok) {
+        setToast({ type: "success", text: "Profile updated successfully" });
+        setTimeout(() => router.push("/my-pet"), 1200);
+      } else {
+        const r = result.result || {};
+        const msg =
+          r.businessErrorDescription || r.validationErrors || r.message || "Failed to save profile";
+        setToast({
+          type: "error",
+          text: typeof msg === "string" ? msg : JSON.stringify(msg),
+        });
+      }
     } catch (err) {
       console.error(err);
       setToast({ type: "error", text: "Failed to save profile" });
@@ -462,6 +487,7 @@ export default function EditPetProfile() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input label="Enter pet's name" value={petName} set={setPetName} />
+              <Select label="Report Type" value={reportType} set={setReportType} options={["LOST", "FOUND"]} placeholder="Select type" />
               <Select label="Pet Type" value={petType} set={setPetType} options={["Dog", "Cat", "Bird", "Other"]} placeholder="Select type" />
               <Input label="Enter pet's breed" value={breed} set={setBreed} />
               <Select
@@ -486,16 +512,27 @@ export default function EditPetProfile() {
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">Location & Date</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Select label="Report Type" value={reportType} set={setReportType} options={["LOST", "FOUND"]} placeholder="Select type" />
+              <Input
+                label={reportType === "FOUND" ? "Where was the pet found?" : "Last seen location"}
+                value={lastSeenLocation}
+                set={setLastSeenLocation}
+              />
+              <Input
+                type="date"
+                label={reportType === "FOUND" ? "Date found" : "Last seen date"}
+                value={lastSeenDate}
+                set={setLastSeenDate}
+              />
+              <Input
+                type="time"
+                label={reportType === "FOUND" ? "Time found (optional)" : "Last seen time"}
+                value={lastSeenTime}
+                set={setLastSeenTime}
+              />
               {reportType === "LOST" && (
-                <>
-                  <Input label="Enter Last Seen Location" value={lastSeenLocation} set={setLastSeenLocation} />
-                  <Input type="date" label="Enter Last Seen Date" value={lastSeenDate} set={setLastSeenDate} />
-                  <Input type="time" label="Enter Last Seen Time" value={lastSeenTime} set={setLastSeenTime} />
-                  <div className="md:col-span-2">
-                    <Textarea label="Circumstances" value={circumstances} set={setCircumstances} placeholder="How did your pet go missing? What were they doing?" />
-                  </div>
-                </>
+                <div className="md:col-span-2">
+                  <Textarea label="Circumstances" value={circumstances} set={setCircumstances} placeholder="How did your pet go missing? What were they doing?" />
+                </div>
               )}
             </div>
           </div>

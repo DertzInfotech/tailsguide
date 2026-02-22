@@ -17,7 +17,7 @@ export default function PetList({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-28 rounded-xl bg-gray-100 animate-pulse"
+            className="h-28 rounded-xl bg-white/30 animate-pulse"
           />
         ))}
       </div>
@@ -28,10 +28,10 @@ export default function PetList({
   return (
     <div className="text-center py-12">
       <div className="text-5xl mb-3">🐾</div>
-      <h3 className="text-lg font-semibold text-gray-800">
+      <h3 className="text-lg font-semibold text-white">
         No active alerts right now
       </h3>
-      <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
+      <p className="text-sm text-white/90 max-w-xs mx-auto mt-1">
         That’s good news. Your community is safe — we’ll notify you instantly if something changes.
       </p>
     </div>
@@ -51,7 +51,7 @@ export default function PetList({
         ))}
       </div>
 
-      <p className="text-xs text-white text-center mt-4">
+      <p className="text-xs text-white/90 text-center mt-4">
         Showing community alerts in real time
       </p>
 

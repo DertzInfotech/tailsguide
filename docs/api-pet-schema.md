@@ -11,7 +11,9 @@
 
 **Request:** `multipart/form-data`
 - `petDTO` (Blob): JSON string of pet data (see Pet entity fields below)
-- `photo` (File): Primary photo (can be sent multiple times for up to 5 photos total)
+- `photos` (File): One or more photo files (primary first when updating)
+
+**petDTO for update (when `id` is set):** Frontend sends `existingMediaIds: number[]` (ids of media to keep) so the backend does not clear `Pet.media` and trigger JPA orphan deletion. Backend should merge: keep media in this list, add new ones from `photos`, remove only media not in the list (or that were deleted via `DELETE /pet/media/{id}`).
 
 **Response:** Pet entity (see schema below)
 

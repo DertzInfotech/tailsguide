@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from "react";
+import Link from "next/link";
 
 export default function PetCard({ pet, imageUrl }) {
   const [loading, setLoading] = useState(false);
@@ -19,22 +20,16 @@ export default function PetCard({ pet, imageUrl }) {
       className={`
         group relative overflow-hidden
         flex gap-4 p-4 mb-4 rounded-xl
-        border transition-all duration-300
+        border-2 transition-all duration-200 bg-white shadow-md
         ${isLost
-          ? "border-red-500/40 bg-red-50/60"
-          : "border-emerald-500/40 bg-emerald-50/60"}
+          ? "border-orange-400/50 border-l-4 border-l-rose-500"
+          : "border-orange-400/50 border-l-4 border-l-emerald-500"}
         ${isRecentlyFound
-          ? "ring-2 ring-emerald-400/60 shadow-emerald-500/30"
+          ? "ring-2 ring-emerald-400/50"
           : ""}
-        hover:shadow-xl
+        hover:shadow-lg hover:border-orange-500/60
       `}
     >
-      {/* Status strip */}
-      <div
-        className={`absolute left-0 top-0 h-full w-1 ${
-          isLost ? "bg-red-500" : "bg-emerald-500"
-        }`}
-      />
 
       {/* Image + badge */}
       <div className="relative shrink-0">
@@ -52,8 +47,8 @@ export default function PetCard({ pet, imageUrl }) {
         <span
           className={`
             absolute -bottom-2 -right-2
-            px-2 py-0.5 rounded-full text-[10px] font-semibold shadow-md
-            ${isLost ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}
+            px-2 py-0.5 rounded-full text-[10px] font-medium
+            ${isLost ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}
           `}
         >
           {pet.reportType}
@@ -63,16 +58,14 @@ export default function PetCard({ pet, imageUrl }) {
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex justify-between gap-2">
-          <h4 className="font-semibold text-gray-900 truncate">
+          <h4 className="font-semibold text-orange-900 truncate">
             {pet.petName || "Unknown"}
           </h4>
-
-          <span className="text-xs px-2 py-1 rounded-full bg-black/5">
+          <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800 shrink-0 font-medium">
             {isLost ? `${daysMissing}d missing` : `${daysMissing}d ago`}
           </span>
         </div>
-
-        <p className="text-sm text-gray-600 truncate mt-1">
+        <p className="text-sm text-orange-800 truncate mt-1">
           📍 {pet.lastSeenLocation}
         </p>
 
@@ -84,26 +77,39 @@ export default function PetCard({ pet, imageUrl }) {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col gap-2 justify-center">
-        <button
-          disabled={loading}
-          onClick={() => downloadFlyer(FLYER_URL, pet.id, setLoading)}
-          className={`
-            px-3 py-1.5 rounded-md text-xs font-medium text-white
-            ${loading
-              ? "bg-orange-300 cursor-not-allowed"
-              : "bg-orange-500 hover:bg-orange-600"}
-          `}
-        >
-          {loading ? "Downloading…" : "Flyer"}
-        </button>
-
-        <button
-          onClick={() => previewFlyer(FLYER_URL)}
-          className="text-xs text-orange-600 hover:underline"
-        >
-          Preview
-        </button>
+      <div className="flex items-center gap-3 justify-center">
+        {/* Flyer + Preview only for LOST pets */}
+        {isLost && (
+          <div className="flex flex-col items-center gap-0.5">
+            <button
+              disabled={loading}
+              onClick={() => downloadFlyer(FLYER_URL, pet.id, setLoading)}
+              className={`
+                px-3 py-1.5 rounded-lg text-xs font-medium text-white
+                ${loading
+                  ? "bg-orange-300 cursor-not-allowed"
+                  : "bg-orange-500 hover:bg-orange-600"}
+              `}
+            >
+              {loading ? "Downloading…" : "Flyer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => previewFlyer(FLYER_URL)}
+              className="text-xs text-orange-600 hover:underline font-medium"
+            >
+              Preview
+            </button>
+          </div>
+        )}
+        {isLost && (
+          <Link
+            href={`/spotted/${pet.id}`}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500 text-white hover:bg-amber-600 whitespace-nowrap"
+          >
+            Report sighting
+          </Link>
+        )}
       </div>
     </div>
   );

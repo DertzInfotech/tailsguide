@@ -2,17 +2,21 @@
 
 import { useState, useRef, useEffect} from "react";
 import { useRouter } from "next/navigation";
-import ImageDropzone from "../../components/UI/dropzone";
 import { useObjectDetection } from "../../utils/useObjectDetection";
 import Input from "@/shared/Input";
 import Notification from "@/shared/Notification";
 import { submitReport } from "@/lib/api-client";
 
+const MAX_PHOTOS = 5;
+
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
   const [currentStep, setCurrentStep] = useState(0);
-  const [lostPetImage, setLostPetImage] = useState(null);
-  const [foundPetImage, setFoundPetImage] = useState(null);
+  /* Multiple photos: arrays of File, primary index for each form */
+  const [lostPetPhotos, setLostPetPhotos] = useState([]);
+  const [lostPrimaryPhotoIndex, setLostPrimaryPhotoIndex] = useState(0);
+  const [foundPetPhotos, setFoundPetPhotos] = useState([]);
+  const [foundPrimaryPhotoIndex, setFoundPrimaryPhotoIndex] = useState(0);
   const [lostPetDetection, setLostPetDetection] = useState(null);
   const [foundPetDetection, setFoundPetDetection] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -70,13 +74,15 @@ export default function ReportPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (reportType === 'lost' && lostPetPhotos.length === 0) {
+      showNotification('Please add at least one pet photo.', 'error');
+      return;
+    }
+    if (reportType === 'found' && foundPetPhotos.length === 0) {
+      showNotification('Please add at least one pet photo.', 'error');
+      return;
+    }
     setIsSubmitting(true);
-    const imageToSubmit = reportType === 'lost' ? lostPetImage : foundPetImage;
-    const detectionData = reportType === 'lost' ? lostPetDetection : foundPetDetection;
-
-    console.log('Form submitted with image:', imageToSubmit);
-    console.log('AI Detection data:', detectionData);
-
     const formdata = new FormData();
     const lostPetJSON = {
       petName: petName,
@@ -122,14 +128,26 @@ export default function ReportPage() {
       specialInstructions: specialInstructions,
     };
 
-    if(reportType === 'lost'){
+    if (reportType === 'lost') {
       formdata.append('petDTO', new Blob([JSON.stringify(lostPetJSON)], { type: 'application/json' }));
-      formdata.append('photo', lostPetImage , lostPetImage.name);
+      const lostPrimary = lostPetPhotos[lostPrimaryPhotoIndex];
+      if (lostPrimary) formdata.append('photos', lostPrimary, lostPrimary.name || 'photo.jpg');
+      lostPetPhotos.forEach((file, idx) => {
+        if (idx !== lostPrimaryPhotoIndex && file instanceof File) {
+          formdata.append('photos', file, file.name || 'photo.jpg');
+        }
+      });
     }
 
-    if(reportType === 'found'){
+    if (reportType === 'found') {
       formdata.append('petDTO', new Blob([JSON.stringify(foundPetJSON)], { type: 'application/json' }));
-      formdata.append('photo', foundPetImage , foundPetImage.name);
+      const foundPrimary = foundPetPhotos[foundPrimaryPhotoIndex];
+      if (foundPrimary) formdata.append('photos', foundPrimary, foundPrimary.name || 'photo.jpg');
+      foundPetPhotos.forEach((file, idx) => {
+        if (idx !== foundPrimaryPhotoIndex && file instanceof File) {
+          formdata.append('photos', file, file.name || 'photo.jpg');
+        }
+      });
     }
 
     const requestOptions = {
@@ -161,8 +179,10 @@ export default function ReportPage() {
   };
 
   const runAIDetection = async (type) => {
-    const file = type === 'lost' ? lostPetImage : foundPetImage;
-    
+    const photos = type === 'lost' ? lostPetPhotos : foundPetPhotos;
+    const primaryIndex = type === 'lost' ? lostPrimaryPhotoIndex : foundPrimaryPhotoIndex;
+    const file = photos[primaryIndex];
+
     if (!file) {
       console.warn('No image selected');
       return;
@@ -201,23 +221,45 @@ export default function ReportPage() {
     }
   };
 
-  const handleLostImageSelect = (file) => {
-    setLostPetImage(file);
+  /* Lost: add / remove / set primary */
+  const addLostPhoto = (file) => {
+    if (!file || lostPetPhotos.length >= MAX_PHOTOS) return;
+    setLostPetPhotos((prev) => [...prev, file]);
+    if (lostPetPhotos.length === 0) setLostPrimaryPhotoIndex(0);
+    setLostPetDetection(null);
+  };
+  const removeLostPhoto = (index) => {
+    setLostPetPhotos((prev) => prev.filter((_, i) => i !== index));
+    setLostPrimaryPhotoIndex((prev) => {
+      if (prev === index) return 0;
+      if (index < prev) return prev - 1;
+      return prev;
+    });
+    setLostPetDetection(null);
+  };
+  const setLostPrimary = (index) => {
+    setLostPrimaryPhotoIndex(index);
     setLostPetDetection(null);
   };
 
-  const handleFoundImageSelect = (file) => {
-    setFoundPetImage(file);
+  /* Found: add / remove / set primary */
+  const addFoundPhoto = (file) => {
+    if (!file || foundPetPhotos.length >= MAX_PHOTOS) return;
+    setFoundPetPhotos((prev) => [...prev, file]);
+    if (foundPetPhotos.length === 0) setFoundPrimaryPhotoIndex(0);
     setFoundPetDetection(null);
   };
-
-  const removeLostImage = () => {
-    setLostPetImage(null);
-    setLostPetDetection(null);
+  const removeFoundPhoto = (index) => {
+    setFoundPetPhotos((prev) => prev.filter((_, i) => i !== index));
+    setFoundPrimaryPhotoIndex((prev) => {
+      if (prev === index) return 0;
+      if (index < prev) return prev - 1;
+      return prev;
+    });
+    setFoundPetDetection(null);
   };
-
-  const removeFoundImage = () => {
-    setFoundPetImage(null);
+  const setFoundPrimary = (index) => {
+    setFoundPrimaryPhotoIndex(index);
     setFoundPetDetection(null);
   };
 
@@ -316,16 +358,32 @@ export default function ReportPage() {
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Pet Details</h2>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload Pet Photo 📸
-                  </label>
-                  <ImageDropzone
-                    onImageSelect={handleLostImageSelect}
-                    selectedImage={lostPetImage}
-                    removeImage={removeLostImage}
-                    onAIDetect={() => runAIDetection('lost')}
-                    isAnalyzing={isAnalyzing}
-                  />
+                  <p className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</p>
+                  <p className="text-sm text-gray-500 mb-2">Photo gallery (max {MAX_PHOTOS}). First primary photo is used for AI.</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {lostPetPhotos.map((file, idx) => (
+                      <div key={idx} className="relative">
+                        <img src={URL.createObjectURL(file)} alt="" className="w-full h-24 object-cover rounded-lg bg-gray-100" />
+                        {lostPrimaryPhotoIndex === idx ? (
+                          <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">Primary</span>
+                        ) : (
+                          <button type="button" onClick={() => setLostPrimary(idx)} className="absolute bottom-1 left-1 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full border hover:bg-white">Set primary</button>
+                        )}
+                        <button type="button" onClick={() => removeLostPhoto(idx)} className="absolute top-0.5 right-0.5 bg-red-500 text-white text-xs px-1.5 rounded">✕</button>
+                      </div>
+                    ))}
+                    {lostPetPhotos.length < MAX_PHOTOS && (
+                      <label className="flex items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer text-gray-400 text-sm">
+                        + Add
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) addLostPhoto(f); e.target.value = ''; }} />
+                      </label>
+                    )}
+                  </div>
+                  {lostPetPhotos.length > 0 && (
+                    <button type="button" onClick={() => runAIDetection('lost')} disabled={isAnalyzing} className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+                      {isAnalyzing ? 'Analyzing…' : 'Analyze primary photo with AI'}
+                    </button>
+                  )}
                   {isAnalyzing && (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center gap-3">
@@ -723,28 +781,40 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Pet Photo 📸
-              </label>
-              <ImageDropzone
-                onImageSelect={handleFoundImageSelect}
-                selectedImage={foundPetImage}
-                removeImage={removeFoundImage}
-                onAIDetect={() => runAIDetection('found')}
-                isAnalyzing={isAnalyzing}
-              />
-
+              <label className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</label>
+              <p className="text-sm text-gray-500 mb-2">Photo gallery (max {MAX_PHOTOS}). First primary photo is used for AI.</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                {foundPetPhotos.map((file, idx) => (
+                  <div key={idx} className="relative">
+                    <img src={URL.createObjectURL(file)} alt="" className="w-full h-24 object-cover rounded-lg bg-gray-100" />
+                    {foundPrimaryPhotoIndex === idx ? (
+                      <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">Primary</span>
+                    ) : (
+                      <button type="button" onClick={() => setFoundPrimary(idx)} className="absolute bottom-1 left-1 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full border hover:bg-white">Set primary</button>
+                    )}
+                    <button type="button" onClick={() => removeFoundPhoto(idx)} className="absolute top-0.5 right-0.5 bg-red-500 text-white text-xs px-1.5 rounded">✕</button>
+                  </div>
+                ))}
+                {foundPetPhotos.length < MAX_PHOTOS && (
+                  <label className="flex items-center justify-center h-24 border-2 border-dashed rounded-lg cursor-pointer text-gray-400 text-sm">
+                    + Add
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) addFoundPhoto(f); e.target.value = ''; }} />
+                  </label>
+                )}
+              </div>
+              {foundPetPhotos.length > 0 && (
+                <button type="button" onClick={() => runAIDetection('found')} disabled={isAnalyzing} className="mt-3 px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+                  {isAnalyzing ? 'Analyzing…' : 'Analyze primary photo with AI'}
+                </button>
+              )}
               {isAnalyzing && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-                    <span className="text-blue-700 font-medium">
-                      🤖 AI is analyzing your image...
-                    </span>
+                    <span className="text-blue-700 font-medium">🤖 AI is analyzing your image...</span>
                   </div>
                 </div>
               )}
-
               {foundPetDetection && !isAnalyzing && (
                 <div
                   className={`mt-4 p-4 rounded-lg border-2 ${foundPetDetection.detected

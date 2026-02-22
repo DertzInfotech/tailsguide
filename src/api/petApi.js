@@ -12,14 +12,14 @@ export const reportPet = (petData, photoFile = null, additionalPhotos = []) => {
 
   // Primary photo (required for thumbnail/primary display)
   if (photoFile instanceof File) {
-    formData.append("photo", photoFile);
+    formData.append("photos", photoFile);
   }
 
   // Additional photos (up to 4 more, max 5 total)
   if (Array.isArray(additionalPhotos)) {
     additionalPhotos.forEach((file) => {
       if (file instanceof File) {
-        formData.append("photo", file); // Multiple files with same field name
+        formData.append("photos", file); // Multiple files with same field name
       }
     });
   }
@@ -62,6 +62,67 @@ export const getPetCollarQr = (id) =>
 export const deletePet = (id) =>
   api.delete(`/pet/${id}`);
 
+/** Update pet (e.g. mark as found) - partial update */
+export const updatePet = (id, updates) =>
+  api.patch(`/pet/${id}`, updates);
+
+/** Mark pet as found (sets reportType to FOUND) */
+export const markPetFound = (petId) =>
+  api.patch(`/pet/${petId}`, { reportType: "FOUND" });
+
 /** Delete a single media item (photo) by mediaId */
 export const deletePetMedia = (mediaId) =>
   api.delete(`/pet/media/${mediaId}`);
+
+/* -----------------------------------------
+   MEDICAL RECORDS
+------------------------------------------ */
+/** GET list of medical records for a pet */
+export const getPetMedicalRecords = (petId) =>
+  api.get(`/pet/medical/${petId}`);
+
+/** POST new medical record: multipart recordDTO + document file */
+export const postPetMedicalRecord = (petId, recordDTO, documentFile) => {
+  const formData = new FormData();
+  formData.append("recordDTO", new Blob([JSON.stringify(recordDTO)], { type: "application/json" }));
+  if (documentFile instanceof File) {
+    formData.append("document", documentFile, documentFile.name);
+  }
+  return api.post(`/pet/medical/${petId}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+/** GET document file for a medical record (returns blob) */
+export const getPetMedicalDocument = (recordId) =>
+  api.get(`/pet/medical/${recordId}/document`, { responseType: "blob" });
+
+/** DELETE a medical record (API: DELETE /pet/medical/{recordId}) */
+export const deletePetMedicalRecord = (recordId) =>
+  api.delete(`/pet/medical/${recordId}`);
+
+/* -----------------------------------------
+   SIGHTINGS (spotted / report seen)
+------------------------------------------ */
+/** GET sightings for a pet */
+export const getPetSightings = (petId) =>
+  api.get(`/pet/sightings/${petId}`);
+
+/** POST new sighting: multipart sightingDTO + photo */
+export const postPetSighting = (petId, sightingDTO, photoFile = null) => {
+  const formData = new FormData();
+  formData.append(
+    "sightingDTO",
+    new Blob([JSON.stringify(sightingDTO)], { type: "application/json" })
+  );
+  if (photoFile instanceof File) {
+    formData.append("photo", photoFile, photoFile.name);
+  }
+  return api.post(`/pet/sightings/${petId}`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+
+/** GET sighting photo (blob) */
+export const getSightingPhoto = (sightingId) =>
+  api.get(`/pet/sightings/${sightingId}/photo`, { responseType: "blob" });
