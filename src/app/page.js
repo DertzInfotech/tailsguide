@@ -72,12 +72,8 @@ export default function Home() {
         <section className="px-6 pt-0 pb-12 rounded-t-[2.5rem] page-glass-bg relative">
           <ReportsOverviewSection />
 
-          {/* Active Alerts + Success Stories: scroll down below Lost & Found Reports */}
           <div className="max-w-6xl mx-auto mt-8 mb-6 relative z-10">
-            <h3 className="text-lg font-semibold text-[#3b2f26] mb-4 px-1">
-              Active Alerts & Success Stories
-            </h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 items-stretch">
               <AlertsSection
                 pets={pets}
                 currentPage={currentPage}

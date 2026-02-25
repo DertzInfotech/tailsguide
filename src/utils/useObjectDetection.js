@@ -2,6 +2,64 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 
+const DOG_KEYWORDS = [
+  'dog', 'puppy', 'hound', 'terrier', 'retriever', 'shepherd', 'bulldog', 'poodle',
+  'spaniel', 'beagle', 'chihuahua', 'pug', 'corgi', 'husky', 'labrador', 'dachshund',
+  'schnauzer', 'doberman', 'rottweiler', 'mastiff', 'boxer', 'collie', 'pointer',
+  'setter', 'dalmatian', 'pomeranian', 'shih-tzu', 'yorkshire', 'maltese', 'afghan',
+  'basenji', 'borzoi', 'greyhound', 'whippet', 'samoyed', 'spitz', 'malamute'
+];
+const CAT_KEYWORDS = [
+  'cat', 'kitten', 'tabby', 'siamese', 'persian', 'maine coon', 'bengal', 'ragdoll',
+  'egyptian cat', 'tiger cat', 'lynx'
+];
+const PET_KEYWORDS = [
+  ...DOG_KEYWORDS,
+  ...CAT_KEYWORDS,
+  'bird', 'parrot', 'parakeet', 'cockatiel', 'canary', 'finch', 'macaw', 'cockatoo',
+  'lorikeet', 'budgerigar', 'lovebird', 'conure', 'african grey',
+  'rabbit', 'bunny', 'hamster', 'guinea pig', 'ferret', 'chinchilla', 'gerbil',
+  'wood rabbit', 'angora',
+  'turtle', 'tortoise', 'lizard', 'iguana', 'gecko', 'chameleon', 'tailed frog',
+  'box turtle', 'terrapin',
+  'horse', 'pony', 'stallion', 'mare', 'colt', 'arabian', 'appaloosa', 'sorrel',
+  'goldfish', 'koi', 'beta'
+];
+
+function inferPetType(className) {
+  const lower = (className || '').toLowerCase();
+  if (DOG_KEYWORDS.some(k => lower.includes(k))) return 'Dog';
+  if (CAT_KEYWORDS.some(k => lower.includes(k))) return 'Cat';
+  return null;
+}
+
+function inferColorFromPredictions(predictions) {
+  const colorMap = [
+    { keywords: ['black', 'ebony'], value: 'Black' },
+    { keywords: ['white', 'snow', 'ivory', 'samoyed'], value: 'White' },
+    { keywords: ['brown', 'chocolate', 'tan', 'brindle', 'sable'], value: 'Brown' },
+    { keywords: ['grey', 'gray', 'greyhound', 'silver', 'blue'], value: 'Grey' },
+    { keywords: ['golden', 'yellow', 'cream', 'blonde', 'fawn'], value: 'Golden' },
+    { keywords: ['red', 'orange', 'ginger', 'rust'], value: 'Red' },
+  ];
+  const allText = (predictions || []).map(p => (p.className || '').toLowerCase()).join(' ');
+  for (const { keywords, value } of colorMap) {
+    if (keywords.some(k => allText.includes(k))) return value;
+  }
+  return '';
+}
+
+function formatBreedName(className) {
+  if (!className) return '';
+  return className
+    .split(/[\s-_]+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/** Minimum confidence (0–100) to auto-fill form fields; below this show "select manually" message */
+export const MIN_CONFIDENCE_FOR_AUTOFILL = 50;
+
 export const useObjectDetection = () => {
   const [model, setModel] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,45 +189,23 @@ export const useObjectDetection = () => {
 
   const detectAndClassify = useCallback(async (imageElement) => {
     if (!model || !imageElement) {
-      return { detections: [], breeds: null, detected: false };
+      return { detections: [], breeds: null, detected: false, type: null, breed: '', color: '', confidence: 0 };
     }
 
     try {
       const allPredictions = await model.classify(imageElement);
       console.log('🏷️ All predictions:', allPredictions);
 
-      const petKeywords = [
-        'dog', 'puppy', 'hound', 'terrier', 'retriever', 'shepherd', 'bulldog', 'poodle', 
-        'spaniel', 'beagle', 'chihuahua', 'pug', 'corgi', 'husky', 'labrador', 'dachshund',
-        'schnauzer', 'doberman', 'rottweiler', 'mastiff', 'boxer', 'collie', 'pointer',
-        'setter', 'dalmatian', 'pomeranian', 'shih-tzu', 'yorkshire', 'maltese', 'afghan',
-        'basenji', 'borzoi', 'greyhound', 'whippet', 'samoyed', 'spitz', 'malamute',
-        
-        'cat', 'kitten', 'tabby', 'siamese', 'persian', 'maine coon', 'bengal', 'ragdoll',
-        'egyptian cat', 'tiger cat', 'lynx',
-        
-        'bird', 'parrot', 'parakeet', 'cockatiel', 'canary', 'finch', 'macaw', 'cockatoo',
-        'lorikeet', 'budgerigar', 'lovebird', 'conure', 'african grey',
-        
-        'rabbit', 'bunny', 'hamster', 'guinea pig', 'ferret', 'chinchilla', 'gerbil',
-        'wood rabbit', 'angora',
-        
-        'turtle', 'tortoise', 'lizard', 'iguana', 'gecko', 'chameleon', 'tailed frog',
-        'box turtle', 'terrapin',
-        
-        'horse', 'pony', 'stallion', 'mare', 'colt', 'arabian', 'appaloosa', 'sorrel',
-        'goldfish', 'koi', 'beta'
-      ];
-
-      // Filter predictions to only those that match pet keywords with minimum 10% confidence
       const petPredictions = allPredictions.filter(pred => {
-        const lowerClassName = pred.className.toLowerCase();
-        const matchesPet = petKeywords.some(keyword => lowerClassName.includes(keyword));
-        const hasMinConfidence = pred.probability >= 0.10; // At least 10% confidence
+        const lowerClassName = (pred.className || '').toLowerCase();
+        const matchesPet = PET_KEYWORDS.some(keyword => lowerClassName.includes(keyword));
+        const hasMinConfidence = pred.probability >= 0.10;
         return matchesPet && hasMinConfidence;
       });
 
       const isPet = petPredictions.length > 0 && petPredictions[0].probability >= 0.15;
+      const topPred = isPet ? petPredictions[0] : null;
+      const confidence = topPred ? Math.round(topPred.probability * 100) : 0;
 
       const breedPredictions = isPet ? petPredictions.slice(0, 3).map(pred => ({
         breed: pred.className,
@@ -177,13 +213,20 @@ export const useObjectDetection = () => {
         probability: pred.probability
       })) : null;
 
+      const type = topPred ? inferPetType(topPred.className) : null;
+      const breed = topPred ? formatBreedName(topPred.className) : '';
+      const color = isPet ? inferColorFromPredictions(petPredictions) : '';
+
       const result = {
         breeds: breedPredictions,
         detected: isPet,
-        petType: isPet && breedPredictions ? breedPredictions[0].breed : null,
-        confidence: isPet && breedPredictions ? breedPredictions[0].confidence : 0,
+        petType: topPred ? topPred.className : null,
+        confidence,
         allDetections: breedPredictions || [],
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        type: type || null,
+        breed: breed || '',
+        color: color || ''
       };
 
       console.log('🎯 Detection result:', result);
@@ -191,7 +234,7 @@ export const useObjectDetection = () => {
     } catch (err) {
       console.error('Detection and classification error:', err);
       setError('AI analysis failed');
-      return { detections: [], breeds: null, detected: false };
+      return { detections: [], breeds: null, detected: false, type: null, breed: '', color: '', confidence: 0 };
     }
   }, [model]);
 

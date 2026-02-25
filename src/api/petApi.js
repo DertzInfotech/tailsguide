@@ -47,6 +47,14 @@ export const getMyPets = () =>
 export const getAllPets = () =>
   api.get("/pet/all");
 
+/** Search/list pets with pagination (for search page). Backend may not support filter params; filter client-side. */
+export const getSearchPets = (page = 0, size = 50, sortBy = "lastSeenDate", sortDirection = "desc") =>
+  api.get(`/pet/all?page=${page}&size=${size}&sortBy=${sortBy}&sortDirection=${sortDirection}`);
+
+/** GET potential matches for a lost pet by pet id. Returns array of pets that may match. */
+export const getPetMatches = (petId) =>
+  api.get(`/pet/${petId}/matches`);
+
 export const getPetThumbnail = (id) =>
   api.get(`/pet/${id}/thumbnail`, { responseType: "blob" });
 
@@ -57,7 +65,11 @@ export const getPetFlyerPdf = (id) =>
   api.get(`/pet/${id}/flyer-pdf`, { responseType: "blob" });
 
 export const getPetCollarQr = (id) =>
-  api.get(`/pet/${id}/collar-qr`, { responseType: "blob" });
+  api.get(`/pet/${id}/collar-qr`, { responseType: "blob", headers: { Accept: "application/pdf" } });
+
+/** POST scan data when someone scans the pet's collar QR. Body can include lastSeenLocation, tempOwnerName, tempOwnerPhone or backend-specific fields. Returns pet object (200). */
+export const postPetScan = (petId, data) =>
+  api.post(`/pet/${petId}/scan`, data);
 
 export const deletePet = (id) =>
   api.delete(`/pet/${id}`);

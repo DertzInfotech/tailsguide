@@ -1,8 +1,8 @@
 'use client';
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPaw, faBars } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
+import { faPaw, faBars, faChevronDown } from "@fortawesome/free-solid-svg-icons";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Drawer from "./Drawer";
@@ -13,7 +13,26 @@ export default function Header() {
   const { isAuthenticated, logout } = useAuth();
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!profileDropdownOpen) return;
+    const close = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+    // Defer so the click that opened the dropdown doesn't immediately trigger close
+    const id = setTimeout(() => {
+      document.addEventListener("click", close);
+    }, 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("click", close);
+    };
+  }, [profileDropdownOpen]);
 
   const handleLogout = () => {
     logout();
@@ -56,25 +75,52 @@ export default function Header() {
             <Link href="/resources" className={pathname === "/resources" ? "nav-link active" : "nav-link"}>Resources</Link>
 
             {isAuthenticated ? (
-              <>
-                <Link
-                  href="/my-pet"
-                  className={pathname === "/my-pets" ? "nav-link active" : "nav-link"}
-                >
-                  My Pets 🐾
-                </Link>
-
-                <Link
-                  href="/profile"
-                  className={pathname === "/profile" ? "nav-link active" : "nav-link"}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileDropdownOpen((o) => !o)}
+                  className={`nav-link inline-flex items-center gap-1.5 ${pathname === "/profile" || pathname === "/my-pet" ? "active" : ""}`}
+                  aria-expanded={profileDropdownOpen}
+                  aria-haspopup="true"
                 >
                   Profile
-                </Link>
-
-                <button onClick={handleLogout} className="nav-link">
-                  Log Out
+                  <FontAwesomeIcon icon={faChevronDown} className={`text-[10px] transition-transform ${profileDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
-              </>
+                {profileDropdownOpen && (
+                  <div
+                    className="absolute right-0 top-full mt-1 min-w-[160px] rounded-xl bg-white shadow-lg border border-stone-200 py-1.5 z-50"
+                    role="menu"
+                  >
+                    <Link
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`block px-4 py-2.5 text-sm font-medium transition-colors ${pathname === "/profile" ? "text-amber-600 bg-amber-50" : "text-stone-700 hover:bg-stone-50"}`}
+                      role="menuitem"
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      href="/my-pet"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`block px-4 py-2.5 text-sm font-medium transition-colors ${pathname === "/my-pet" ? "text-amber-600 bg-amber-50" : "text-stone-700 hover:bg-stone-50"}`}
+                      role="menuitem"
+                    >
+                      My Pets 🐾
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="block w-full text-left px-4 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors"
+                      role="menuitem"
+                    >
+                      Log Out
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Link
                 href="/signin"

@@ -334,6 +334,11 @@ header>nav {
   border-radius: 1rem;
 }
 
+.pet-marker-div.leaflet-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
@@ -375,9 +380,34 @@ header>nav {
 
 /* Active Alerts scroll container */
 .alerts-scroll {
-  max-height: 430px;       
+  max-height: 430px;
   overflow-y: auto;
   padding-right: 6px;
+}
+
+.alerts-scroll-compact {
+  max-height: 320px;
+}
+
+/* Active Alerts: show exactly 3 compact cards at a time (rest auto-scroll) */
+.alerts-scroll-three-cards {
+  max-height: 252px;
+}
+
+/* Active Alerts infinite scroll viewport (transform-based, no scrollTop) */
+.alerts-scroll-viewport {
+  contain: layout style;
+}
+
+/* Success Stories: show exactly 3 story cards at a time (rest auto-scroll) */
+.success-stories-scroll-three-cards {
+  max-height: 432px;
+}
+
+/* Lost & Found list: let list extend to bottom, no gap */
+.alerts-scroll-expand {
+  max-height: none;
+  min-height: 200px;
 }
 
 /* Smooth scrolling */

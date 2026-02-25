@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getMyPets, deletePetMedia } from "@/api/petApi";
 import { submitReport } from "@/lib/api-client";
-import { useObjectDetection } from "@/utils/useObjectDetection";
+import { useObjectDetection, MIN_CONFIDENCE_FOR_AUTOFILL } from "@/utils/useObjectDetection";
 
 const MAX_PHOTOS = 5;
 
@@ -219,6 +219,11 @@ export default function EditPetProfile() {
         img.onload = async () => {
           const result = await detectAndClassify(img);
           setAiResult(result);
+          if (result.confidence >= MIN_CONFIDENCE_FOR_AUTOFILL && result.type) {
+            setPetType(result.type);
+            if (result.breed) setBreed(result.breed);
+            if (result.color) setPrimaryColor(result.color);
+          }
           setIsAnalyzing(false);
         };
         img.src = e.target.result;
@@ -232,7 +237,7 @@ export default function EditPetProfile() {
     }
   };
 
-  /* ---------- SAVE (same API as report page: petDTO + photos) ---------- */
+  /* ---------- SAVE ---------- */
   const handleSave = async () => {
     try {
       const petDTO = {
@@ -299,60 +304,104 @@ export default function EditPetProfile() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-100 flex items-center justify-center p-6">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-200/60 animate-pulse mx-auto mb-4" />
+          <p className="text-stone-600 font-medium">Loading profile…</p>
+        </div>
+      </div>
+    );
+  }
 
   /* ---------- UI ---------- */
+  const steps = ["Pet Details", "Location & Date", "Contact Info", "Medical Info"];
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-12">
-      {toast && (
-        <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-xl text-white ${toast.type === "success" ? "bg-green-500" : "bg-red-500"}`}>
-          {toast.text}
-        </div>
-      )}
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Unique background: soft gradient + dot pattern */}
+      <div
+        className="fixed inset-0 z-0"
+        style={{
+          background: "linear-gradient(135deg, #faf8f5 0%, #f5f0e8 40%, #fef7ed 100%)",
+          backgroundImage: "linear-gradient(135deg, #faf8f5 0%, #f5f0e8 40%, #fef7ed 100%), radial-gradient(circle at 1px 1px, rgba(180, 83, 9, 0.08) 1px, transparent 0)",
+          backgroundSize: "100% 100%, 24px 24px",
+        }}
+      />
+      <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-amber-200/20 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 left-0 w-80 h-80 rounded-full bg-stone-300/15 blur-3xl pointer-events-none" />
 
-      {/* Custom modal: "Set as primary?" (only first time) */}
-      {showPrimaryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => confirmPrimaryChoice(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
-            <p className="text-gray-800 font-medium mb-4">Do you want to keep this as the primary photo?</p>
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => confirmPrimaryChoice(false)} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">No</button>
-              <button type="button" onClick={() => confirmPrimaryChoice(true)} className="px-4 py-2 rounded-lg bg-orange-500 text-white hover:bg-orange-600">Yes</button>
+      <div className="relative z-10 px-4 py-8 sm:py-12">
+        {toast && (
+          <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-xl text-white shadow-lg ${toast.type === "success" ? "bg-emerald-500" : "bg-red-500"}`}>
+            {toast.text}
+          </div>
+        )}
+
+        {/* Custom modal: "Set as primary?" (only first time) */}
+        {showPrimaryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => confirmPrimaryChoice(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm mx-4 border border-amber-100" onClick={(e) => e.stopPropagation()}>
+              <p className="text-gray-800 font-medium mb-4">Do you want to keep this as the primary photo?</p>
+              <div className="flex gap-3 justify-end">
+                <button type="button" onClick={() => confirmPrimaryChoice(false)} className="px-4 py-2 rounded-lg border border-stone-200 text-stone-700 hover:bg-stone-50">No</button>
+                <button type="button" onClick={() => confirmPrimaryChoice(true)} className="px-4 py-2 rounded-lg bg-amber-500 text-white hover:bg-amber-600">Yes</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-2">Edit Pet Profile</h1>
-        <p className="text-gray-600 mb-8">Update your lost or found pet report</p>
+        <div className="max-w-4xl mx-auto">
+          {/* Back link */}
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-sm text-stone-600 hover:text-amber-700 font-medium mb-6 transition-colors"
+          >
+            <span aria-hidden>←</span> Back
+          </button>
 
-        {/* Step indicator (same as report form) */}
-        <div className="flex items-center justify-between mb-8">
-          {["Pet Details", "Location & Date", "Contact Info", "Medical Info"].map((label, index) => (
-            <div
-              key={index}
-              className={`flex items-center ${index <= currentStep ? "text-orange-600 font-semibold" : "text-gray-400"}`}
-            >
-              <div
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 ${
-                  index <= currentStep ? "bg-orange-50 border-orange-500 text-orange-600" : "bg-gray-100 border-gray-300 text-gray-400"
-                }`}
-              >
-                {index + 1}
+          {/* Main card: paper-style with left accent */}
+          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl shadow-amber-900/5 border border-amber-100/80 overflow-hidden border-l-4 border-l-amber-400">
+            <div className="p-6 sm:p-8 md:p-10">
+              {/* Header */}
+              <div className="flex items-start gap-4 mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-300/30 shrink-0">
+                  ✏️
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-stone-800 tracking-tight">Edit Pet Profile</h1>
+                  <p className="text-stone-500 mt-1">Update your pet&apos;s details step by step</p>
+                </div>
               </div>
-              <span className="hidden sm:inline">{label}</span>
-              {index < 3 && (
-                <div className={`h-0.5 w-8 mx-2 ${index < currentStep ? "bg-orange-500" : "bg-gray-300"}`} />
-              )}
-            </div>
-          ))}
-        </div>
+
+              {/* Step indicator - pill bar */}
+              <div className="flex flex-wrap gap-2 p-2 rounded-2xl bg-amber-50/70 border border-amber-100/80 mb-8">
+                {steps.map((label, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setCurrentStep(index)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      index === currentStep
+                        ? "bg-white text-amber-700 shadow-sm border border-amber-200"
+                        : index < currentStep
+                          ? "text-amber-600 hover:bg-white/60"
+                          : "text-stone-400 hover:text-stone-600"
+                    }`}
+                  >
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${index === currentStep ? "bg-amber-500 text-white" : index < currentStep ? "bg-amber-200 text-amber-800" : "bg-stone-200"}`}>
+                      {index < currentStep ? "✓" : index + 1}
+                    </span>
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
 
         {/* Step 0: Pet Details */}
         {currentStep === 0 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Pet Details</h2>
+            <h2 className="text-xl font-bold text-stone-800 mb-4">Pet Details</h2>
             <div>
               <p className="block text-sm font-medium text-gray-700 mb-2">Pet Photo</p>
               <div className="flex items-start gap-6 flex-wrap">
@@ -460,12 +509,23 @@ export default function EditPetProfile() {
                                 {aiResult.detected ? (
                                   <div>
                                     <p className="font-bold text-green-800">✅ Pet Detected</p>
-                                    <p className="text-sm text-green-700 mt-1">
-                                      <strong>Type:</strong> {String(aiResult.petType || "").toUpperCase()}
-                                    </p>
-                                    <p className="text-sm text-green-700">
-                                      <strong>Confidence:</strong> {aiResult.confidence}%
-                                    </p>
+                                    <div className="text-sm text-green-700 mt-1 space-y-0.5">
+                                      {aiResult.type && (
+                                        <p><strong>Type:</strong> {aiResult.type}</p>
+                                      )}
+                                      {aiResult.breed && (
+                                        <p><strong>Breed:</strong> {aiResult.breed}</p>
+                                      )}
+                                      {aiResult.color && (
+                                        <p><strong>Color:</strong> {aiResult.color}</p>
+                                      )}
+                                      <p><strong>Confidence:</strong> {aiResult.confidence}%</p>
+                                    </div>
+                                    {aiResult.confidence < MIN_CONFIDENCE_FOR_AUTOFILL && (
+                                      <p className="mt-3 text-sm text-amber-700 font-medium">
+                                        We couldn&apos;t confidently detect breed. Please select manually.
+                                      </p>
+                                    )}
                                   </div>
                                 ) : (
                                   <div>
@@ -510,7 +570,7 @@ export default function EditPetProfile() {
         {/* Step 1: Location & Date */}
         {currentStep === 1 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Location & Date</h2>
+            <h2 className="text-xl font-bold text-stone-800 mb-4">Location & Date</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
                 label={reportType === "FOUND" ? "Where was the pet found?" : "Last seen location"}
@@ -541,29 +601,29 @@ export default function EditPetProfile() {
         {/* Step 2: Contact Info */}
         {currentStep === 2 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Contact Info</h2>
+            <h2 className="text-xl font-bold text-stone-800 mb-4">Contact Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input label="Your Name" value={ownerName} set={setOwnerName} />
               <Input label="Contact Number" value={ownerPhone} set={setOwnerPhone} />
               <Input label="Contact Email" value={ownerEmail} set={setOwnerEmail} />
               <Input label="Emergency Number" value={emergencyContact} set={setEmergencyContact} />
               <div className="md:col-span-2 mt-4">
-                <h4 className="text-lg font-semibold mb-4 text-gray-700">Alert Preferences</h4>
+                <h4 className="text-lg font-semibold mb-4 text-stone-700">Alert Preferences</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="bg-gray-100 p-3 rounded-lg flex items-center gap-2">
-                    <input type="checkbox" checked={isSMSChecked} onChange={(e) => setIsSMSChecked(e.target.checked)} className="h-4 w-4" />
+                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                    <input type="checkbox" checked={isSMSChecked} onChange={(e) => setIsSMSChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
                     SMS Alert
                   </label>
-                  <label className="bg-gray-100 p-3 rounded-lg flex items-center gap-2">
-                    <input type="checkbox" checked={isEmailChecked} onChange={(e) => setIsEmailChecked(e.target.checked)} className="h-4 w-4" />
+                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                    <input type="checkbox" checked={isEmailChecked} onChange={(e) => setIsEmailChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
                     Email Notification
                   </label>
-                  <label className="bg-gray-100 p-3 rounded-lg flex items-center gap-2">
-                    <input type="checkbox" checked={isSocialChecked} onChange={(e) => setIsSocialChecked(e.target.checked)} className="h-4 w-4" />
+                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                    <input type="checkbox" checked={isSocialChecked} onChange={(e) => setIsSocialChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
                     Social Media Sharing
                   </label>
-                  <label className="bg-gray-100 p-3 rounded-lg flex items-center gap-2">
-                    <input type="checkbox" checked={isWPChecked} onChange={(e) => setIsWPChecked(e.target.checked)} className="h-4 w-4" />
+                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                    <input type="checkbox" checked={isWPChecked} onChange={(e) => setIsWPChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
                     Community WhatsApp Groups
                   </label>
                 </div>
@@ -575,7 +635,7 @@ export default function EditPetProfile() {
         {/* Step 3: Medical Info */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Medical Info</h2>
+            <h2 className="text-xl font-bold text-stone-800 mb-4">Medical Info</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input label="Microchip ID" value={microchipId} set={setMicrochipId} />
               <Input label="Veterinarian" value={veterinarian} set={setVeterinarian} />
@@ -589,26 +649,29 @@ export default function EditPetProfile() {
           </div>
         )}
 
-        {/* Navigation (same as report form) */}
-        <div className="flex justify-between mt-8">
+        {/* Navigation */}
+        <div className="flex justify-between mt-8 pt-6 border-t border-amber-100/80">
           {currentStep > 0 ? (
-            <button type="button" onClick={handlePrevStep} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-semibold">
+            <button type="button" onClick={handlePrevStep} className="px-6 py-3 rounded-xl bg-stone-100 text-stone-700 font-semibold hover:bg-stone-200 transition-colors">
               Previous
             </button>
           ) : (
-            <button type="button" onClick={() => router.back()} className="px-6 py-3 text-gray-500 hover:underline">
+            <button type="button" onClick={() => router.back()} className="px-6 py-3 text-stone-500 hover:text-stone-700 font-medium transition-colors">
               Cancel
             </button>
           )}
           {currentStep < 3 ? (
-            <button type="button" onClick={handleNextStep} className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">
+            <button type="button" onClick={handleNextStep} className="px-6 py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 shadow-md shadow-amber-300/30 transition-all">
               Next
             </button>
           ) : (
-            <button type="button" onClick={handleSave} className="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">
+            <button type="button" onClick={handleSave} className="px-6 py-3 rounded-xl bg-emerald-500 text-white font-semibold hover:bg-emerald-600 shadow-md shadow-emerald-300/30 transition-all">
               Save Profile
             </button>
           )}
+        </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -633,9 +696,9 @@ function Input({ label, value, set, type = "text" }) {
         type={type}
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border border-stone-200 bg-white/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
+      <label className="absolute left-4 top-2 text-xs text-stone-500">{label}</label>
     </div>
   );
 }
@@ -646,14 +709,14 @@ function Select({ label, value, set, options, placeholder = "Not Applicable" }) 
       <select
         value={value}
         onChange={(e) => set(e.target.value)}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border bg-white"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border border-stone-200 bg-white/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition"
       >
         <option value="">{placeholder}</option>
         {options.map((o) => (
           <option key={o} value={o}>{o}</option>
         ))}
       </select>
-      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
+      <label className="absolute left-4 top-2 text-xs text-stone-500">{label}</label>
     </div>
   );
 }
@@ -665,9 +728,9 @@ function Textarea({ label, value, set, placeholder }) {
         value={value}
         onChange={(e) => set(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 pt-6 pb-2 rounded-xl border min-h-[110px]"
+        className="w-full px-4 pt-6 pb-2 rounded-xl border border-stone-200 bg-white/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition min-h-[110px]"
       />
-      <label className="absolute left-4 top-2 text-xs text-gray-400">{label}</label>
+      <label className="absolute left-4 top-2 text-xs text-stone-500">{label}</label>
     </div>
   );
 }

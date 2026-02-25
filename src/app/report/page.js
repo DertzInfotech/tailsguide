@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect} from "react";
 import { useRouter } from "next/navigation";
-import { useObjectDetection } from "../../utils/useObjectDetection";
+import { useObjectDetection, MIN_CONFIDENCE_FOR_AUTOFILL } from "../../utils/useObjectDetection";
 import Input from "@/shared/Input";
 import Notification from "@/shared/Notification";
 import { submitReport } from "@/lib/api-client";
@@ -205,6 +205,11 @@ export default function ReportPage() {
 
           if (type === 'lost') {
             setLostPetDetection(result);
+            if (result.confidence >= MIN_CONFIDENCE_FOR_AUTOFILL && result.type) {
+              setPetType(result.type);
+              if (result.breed) setBreed(result.breed);
+              if (result.color) setPrimaryColor(result.color);
+            }
           } else {
             setFoundPetDetection(result);
           }
@@ -411,13 +416,22 @@ export default function ReportPage() {
                             </span>
                           </div>
                           <div className="space-y-1 text-green-700">
-                            <p>
-                              <strong>Type:</strong> {lostPetDetection.petType.toUpperCase()}
-                            </p>
-                            <p>
-                              <strong>Confidence:</strong> {lostPetDetection.confidence}%
-                            </p>
+                            {lostPetDetection.type && (
+                              <p><strong>Type:</strong> {lostPetDetection.type}</p>
+                            )}
+                            {lostPetDetection.breed && (
+                              <p><strong>Breed:</strong> {lostPetDetection.breed}</p>
+                            )}
+                            {lostPetDetection.color && (
+                              <p><strong>Color:</strong> {lostPetDetection.color}</p>
+                            )}
+                            <p><strong>Confidence:</strong> {lostPetDetection.confidence}%</p>
                           </div>
+                          {lostPetDetection.confidence < MIN_CONFIDENCE_FOR_AUTOFILL && (
+                            <p className="mt-3 text-sm text-amber-700 font-medium">
+                              We couldn&apos;t confidently detect breed. Please select manually.
+                            </p>
+                          )}
                         </div>
                       ) : (
                           <div className="flex items-center gap-2 mb-2">
@@ -445,7 +459,7 @@ export default function ReportPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Pet Type {lostPetDetection?.detected && `(AI: ${lostPetDetection.petType})`}
+                      Pet Type {lostPetDetection?.detected && lostPetDetection?.type && `(AI: ${lostPetDetection.type})`}
                     </label>
                     <select 
                       value={petType}
@@ -830,7 +844,18 @@ export default function ReportPage() {
                           Pet Detected!
                         </span>
                       </div>
-
+                      <div className="space-y-1 text-green-700">
+                        {foundPetDetection.type && (
+                          <p><strong>Type:</strong> {foundPetDetection.type}</p>
+                        )}
+                        {foundPetDetection.breed && (
+                          <p><strong>Breed:</strong> {foundPetDetection.breed}</p>
+                        )}
+                        {foundPetDetection.color && (
+                          <p><strong>Color:</strong> {foundPetDetection.color}</p>
+                        )}
+                        <p><strong>Confidence:</strong> {foundPetDetection.confidence}%</p>
+                      </div>
                       {foundPetDetection.breeds && foundPetDetection.breeds.length > 0 && (
                         <div className="mt-3">
                           <p className="font-semibold text-green-800 mb-2">🏷️ AI Breed Predictions:</p>
@@ -850,6 +875,11 @@ export default function ReportPage() {
                             💡 This information can help identify the owner!
                           </p>
                         </div>
+                      )}
+                      {foundPetDetection.confidence < MIN_CONFIDENCE_FOR_AUTOFILL && (
+                        <p className="mt-3 text-sm text-amber-700 font-medium">
+                          We couldn&apos;t confidently detect breed. Please select manually.
+                        </p>
                       )}
                     </div>
                   ) : (

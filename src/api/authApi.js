@@ -15,7 +15,12 @@ export const loginUser = async (data) => {
   return response.data;
 };
 
-// Validate token (optional but useful)
+// Validate token (GET with Authorization header) - use after sign in/sign up
 export const validateToken = () => {
   return api.get("/auth/validate-token");
+};
+
+// Forgot password - POST with { email }, resets password and sends via email
+export const forgotPassword = (email) => {
+  return api.post("/auth/forgot-password", { email });
 };

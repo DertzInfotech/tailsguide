@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePets } from "@/lib/api-client";
 import PetList from "@/features/pets/PetList";
-import StoryList, { SUCCESS_STORIES_COUNT } from "@/features/pets/StoryList";
 import CartoonCardPet from "@/components/dashboard/CartoonCardPet";
 
 export default function ReportsOverviewSection() {
@@ -13,6 +12,7 @@ export default function ReportsOverviewSection() {
 
   const { pets, loading } = usePets(0);
   const lostPets = pets.filter((p) => p.reportType === "LOST");
+  const foundPets = pets.filter((p) => p.reportType === "FOUND");
 
   return (
     <FadeIn delay={150}>
@@ -64,8 +64,8 @@ export default function ReportsOverviewSection() {
             </button>
           </div>
 
-          {/* Content */}
-          <div className="alerts-scroll mt-5 pt-1">
+          {/* Content - list extends down, no gap */}
+          <div className="alerts-scroll alerts-scroll-expand mt-5 pt-1">
             {activeTab === "LOST" && (
               <PetList
                 pets={lostPets}
@@ -74,7 +74,13 @@ export default function ReportsOverviewSection() {
               />
             )}
             {activeTab === "FOUND" && (
-              <StoryList count={SUCCESS_STORIES_COUNT} />
+              <PetList
+                pets={foundPets}
+                loading={loading}
+                hidePagination
+                emptyTitle="No found pets reported yet"
+                emptyDescription="When someone reports a found pet, they’ll appear here for owners to see."
+              />
             )}
           </div>
         </div>

@@ -14,10 +14,10 @@ import {
 
 function StoryCard({ story }) {
   return (
-    <div className="group rounded-xl p-4 sm:p-5 bg-white border-2 border-orange-400/40 hover:border-orange-500/60 hover:shadow-lg transition-all duration-200 flex gap-4 border-l-4 border-l-orange-500 shadow-md">
+    <div className="group rounded-xl p-3 sm:p-4 bg-white border-2 border-orange-400/40 hover:border-orange-500/60 hover:shadow-lg transition-all duration-200 flex gap-3 border-l-4 border-l-orange-500 shadow-md">
       <div className="relative shrink-0">
-        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-orange-500 text-white flex items-center justify-center group-hover:bg-orange-600 transition-colors shadow">
-          <FontAwesomeIcon icon={story.logo} className="text-base sm:text-lg" />
+        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500 text-white flex items-center justify-center group-hover:bg-orange-600 transition-colors shadow">
+          <FontAwesomeIcon icon={story.logo} className="text-sm sm:text-base" />
         </div>
         {story.verified && (
           <FontAwesomeIcon
@@ -27,9 +27,9 @@ function StoryCard({ story }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <h4 className="font-semibold text-orange-900 text-base">{story.title}</h4>
-        <p className="text-sm text-orange-800/90 mt-1 leading-snug">{story.story}</p>
-        <p className="text-xs text-orange-700 mt-2">{story.date}</p>
+        <h4 className="font-semibold text-orange-900 text-sm sm:text-base">{story.title}</h4>
+        <p className="text-sm text-orange-800/90 mt-0.5 leading-snug line-clamp-2">{story.story}</p>
+        <p className="text-xs text-orange-700 mt-1.5">{story.date}</p>
       </div>
     </div>
   );
@@ -58,7 +58,7 @@ export default function StoryList({ count = SUCCESS_STORIES_COUNT, loading = fal
   const storiesToShow = SUCCESS_STORIES.slice(0, count);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {storiesToShow.map((story, i) => (
         <StoryCard key={i} story={story} />
       ))}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getMyPets, deletePet, getPetSightings } from "@/api/petApi";
+import { getMyPets, deletePet, getPetSightings, getPetCollarQr } from "@/api/petApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -30,7 +30,7 @@ export default function MyPets() {
   const [showForm, setShowForm] = useState(false);
   const [petName, setPetName] = useState("");
   const [breed, setBreed] = useState("");
-  const [addReportType, setAddReportType] = useState("REGISTER");
+  const [addReportType, setAddReportType] = useState("REGISTERED");
   const [addFoundLocation, setAddFoundLocation] = useState("");
   const [addFoundDate, setAddFoundDate] = useState("");
 
@@ -64,6 +64,17 @@ export default function MyPets() {
       setLoading(false);
     }
   };
+
+  /* ---------- CLOSE DROPDOWN ON SCROLL ---------- */
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = () => {
+      setOpenMenuId(null);
+      setMenuPosition(null);
+    };
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [openMenuId]);
 
   /* ---------- FETCH SIGHTINGS FOR LOST PETS ---------- */
   useEffect(() => {
@@ -146,7 +157,7 @@ export default function MyPets() {
       if (res.ok) {
         setPetName("");
         setBreed("");
-        setAddReportType("REGISTER");
+        setAddReportType("REGISTERED");
         setAddFoundLocation("");
         setAddFoundDate("");
         setShowForm(false);
@@ -187,13 +198,8 @@ export default function MyPets() {
       setQrLoading(true);
       setQrPetName(pet.petName);
 
-      const res = await fetch(
-        `/api/v1/pet/${pet.id}/collar-qr`
-      );
-
-      if (!res.ok) throw new Error("QR generation failed");
-
-      const blob = await res.blob();
+      const res = await getPetCollarQr(pet.id);
+      const blob = res.data;
       const url = window.URL.createObjectURL(blob);
       setQrUrl(url);
     } catch (err) {
@@ -206,8 +212,10 @@ export default function MyPets() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fefaf5] px-4 py-8 sm:p-6">
-        <div className="max-w-4xl mx-auto">
+      <div className="min-h-screen relative overflow-hidden">
+        <div className="fixed inset-0 z-0 bg-gradient-to-br from-amber-50/95 via-orange-50/90 to-amber-100/80" />
+        <div className="relative z-10 px-4 py-8 sm:p-6">
+          <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-amber-200/50 animate-pulse" />
@@ -222,44 +230,52 @@ export default function MyPets() {
               <div key={i} className="aspect-[4/5] rounded-2xl bg-white/80 border border-amber-50 animate-pulse max-w-[200px] sm:max-w-[220px] w-full" />
             ))}
           </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#fefaf5] px-4 py-8 sm:p-6 relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes dropdownIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dropdownIn { from { opacity: 0; transform: translateY(8px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes cardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes modalIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       ` }} />
-      {/* Pet-themed background accents */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-amber-200/30 blur-3xl" />
-        <div className="absolute top-1/2 -left-32 w-64 h-64 rounded-full bg-orange-200/20 blur-3xl" />
+      {/* Unique background: gradient + pattern + soft orbs */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-50/95 via-orange-50/90 to-amber-100/80" />
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{ backgroundImage: "url('/paw-pattern.png')", backgroundRepeat: "repeat", backgroundSize: "280px 280px" }}
+        />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-amber-300/25 blur-3xl" />
+        <div className="absolute top-1/3 -left-40 w-80 h-80 rounded-full bg-orange-300/20 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 rounded-full bg-amber-200/15 blur-3xl" />
       </div>
 
-      <div className="max-w-4xl mx-auto relative">
+      <div className="relative z-10 px-4 py-8 sm:p-6">
+        <div className="max-w-4xl mx-auto bg-white/75 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-amber-900/5 border border-white/80 p-6 sm:p-8">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-2xl shadow-lg shadow-orange-200/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pb-6 border-b border-amber-200/60">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-3xl shadow-lg shadow-orange-300/40 ring-2 ring-white/50">
               🐾
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-800 to-gray-700 bg-clip-text text-transparent tracking-tight">
                 My Pets
               </h1>
-              <p className="text-gray-500 mt-0.5 text-sm">
+              <p className="text-amber-800/70 mt-1 text-sm font-medium">
                 Your furry family, all in one place
               </p>
             </div>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[#fa7c15] to-amber-500 text-white font-semibold shadow-lg shadow-orange-200/40 hover:shadow-xl hover:shadow-orange-300/40 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#fa7c15] to-amber-500 text-white font-semibold shadow-lg shadow-orange-300/40 hover:shadow-xl hover:shadow-orange-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2"
           >
             <span className="text-xl leading-none">+</span>
             Add Pet
@@ -305,7 +321,7 @@ export default function MyPets() {
               <label className="block text-sm font-medium text-gray-700 mb-2">Report type</label>
               <div className="flex flex-wrap gap-3">
                 {[
-                  { value: "REGISTER", label: "Register", desc: "Register your pet" },
+                  { value: "REGISTERED", label: "Register", desc: "Register your pet" },
                   { value: "LOST", label: "Lost", desc: "Pet is lost" },
                   { value: "FOUND", label: "Found", desc: "Pet is found" },
                 ].map((opt) => (
@@ -362,7 +378,7 @@ export default function MyPets() {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => { setShowForm(false); setAddError(null); setAddReportType("REGISTER"); setAddFoundLocation(""); setAddFoundDate(""); }}
+                onClick={() => { setShowForm(false); setAddError(null); setAddReportType("REGISTERED"); setAddFoundLocation(""); setAddFoundDate(""); }}
                 className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition"
               >
                 Cancel
@@ -396,7 +412,7 @@ export default function MyPets() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4 justify-items-center">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-5 justify-items-center">
             {pets.map((pet, index) => {
               const missing = getMissingProfileFields(pet);
               const isComplete = missing.length === 0;
@@ -405,24 +421,25 @@ export default function MyPets() {
                 : `/api/v1/pet/${pet.id}/thumbnail?ts=${pet.updatedAt || Date.now()}`;
               const sightings = sightingsByPetId[pet.id] || [];
               const hasSightings = pet.reportType === "LOST" && sightings.length > 0;
+              const isLost = pet.reportType === "LOST";
 
               return (
-                <div key={pet.id} className="w-full max-w-[170px] sm:max-w-[185px] flex flex-col items-center gap-2">
+                <div key={pet.id} className="w-full max-w-[180px] sm:max-w-[200px] flex flex-col items-center gap-3">
                 <div
-                  className="group relative bg-white rounded-2xl sm:rounded-3xl shadow-md border border-amber-50/80 overflow-hidden hover:shadow-xl hover:border-amber-200/60 hover:-translate-y-1 transition-all duration-300 w-full [animation:cardIn_0.35s_ease-out_both]"
+                  className="group relative w-full rounded-2xl overflow-hidden bg-white/90 backdrop-blur-sm border border-white/80 shadow-lg shadow-amber-900/5 hover:shadow-xl hover:shadow-amber-900/10 hover:-translate-y-1.5 active:translate-y-0 transition-all duration-300 [animation:cardIn_0.35s_ease-out_both]"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  {/* Card: photo as hero, info overlay at bottom */}
+                  {/* Photo + overlay */}
                   <button
                     type="button"
                     onClick={() => router.push(`/edit-pet/${pet.id}`)}
-                    className="block w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset rounded-2xl sm:rounded-3xl"
+                    className="block w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset rounded-2xl overflow-hidden"
                   >
-                    <div className="aspect-[4/5] relative overflow-hidden bg-gradient-to-br from-amber-50 to-orange-50">
+                    <div className="aspect-[4/5] relative overflow-hidden bg-linear-to-br from-amber-100 to-orange-100">
                       <img
                         src={thumbnailUrl}
                         alt=""
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         onLoad={(e) => {
                           const next = e.currentTarget.nextElementSibling;
                           if (next) next.classList.add("hidden");
@@ -431,43 +448,42 @@ export default function MyPets() {
                           e.currentTarget.classList.add("hidden");
                         }}
                       />
-                      <span className="absolute inset-0 flex items-center justify-center text-4xl text-amber-200/80">🐕</span>
-                      {/* Gradient overlay at bottom for text */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-                      {/* Badge top-left */}
+                      <span className="absolute inset-0 flex items-center justify-center text-5xl text-amber-200/70">🐕</span>
+                      {/* Bottom gradient + frosted bar */}
+                      <div className="absolute inset-0 bg-linear-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-white/15 backdrop-blur-md border-t border-white/20 p-3">
+                        <p className="font-bold text-white text-base truncate drop-shadow-md">{pet.petName}</p>
+                        <p className="text-white/95 text-xs truncate mt-0.5">{pet.breed || "—"}</p>
+                        <span className={`inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold ${isComplete ? "text-emerald-200" : "text-amber-200"}`}>
+                          {isComplete ? "✓ Complete" : `${missing.length} to go`}
+                        </span>
+                      </div>
+                      {/* Status badge: pill with left accent */}
                       <span
-                        className={`absolute top-1.5 left-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold shadow ${
-                          pet.reportType === "LOST"
-                            ? "bg-amber-500/90 text-white"
-                            : "bg-emerald-500/90 text-white"
+                        className={`absolute top-3 left-3 inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg ${
+                          isLost
+                            ? "bg-amber-500/95 text-white border-l-2 border-amber-300"
+                            : "bg-emerald-500/95 text-white border-l-2 border-emerald-300"
                         }`}
                       >
-                        {pet.reportType === "LOST" ? "Lost" : "Found"}
+                        {isLost ? "Lost" : "Found"}
                       </span>
-                      {/* Info at bottom */}
-                      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3 text-white">
-                        <p className="font-bold text-base truncate drop-shadow">{pet.petName}</p>
-                        <p className="text-white/90 text-xs truncate">{pet.breed || "—"}</p>
-                        <p className={`text-[10px] mt-0.5 font-medium ${isComplete ? "text-emerald-200" : "text-amber-200"}`}>
-                          {isComplete ? "✓ Complete" : `${missing.length} to go`}
-                        </p>
-                      </div>
                     </div>
                   </button>
 
-                  {/* Actions: floating on card */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                  {/* View profile on card */}
+                  <div className="px-3 py-2 bg-amber-50/80 border-t border-amber-100/80">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/edit-pet/${pet.id}`);
-                      }}
-                      className="p-2 rounded-xl bg-white/90 backdrop-blur shadow hover:bg-white text-amber-800 transition"
-                      aria-label="Edit"
+                      onClick={(e) => { e.stopPropagation(); router.push(`/my-pet/${pet.id}/profile`); }}
+                      className="w-full text-center text-xs font-semibold text-amber-700 hover:text-amber-800 py-1.5 rounded-lg hover:bg-amber-100/80 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      View profile →
                     </button>
+                  </div>
+
+                  {/* Action: menu */}
+                  <div className="absolute top-2.5 right-2.5 flex items-center justify-end z-10">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -484,7 +500,7 @@ export default function MyPets() {
                           setOpenMenuId(pet.id);
                         }
                       }}
-                      className="p-2 rounded-xl bg-white/90 backdrop-blur shadow hover:bg-white text-gray-600 transition"
+                      className="p-2 rounded-full bg-white/95 backdrop-blur-sm shadow-md hover:bg-white hover:scale-110 text-gray-600 transition-all duration-200"
                       aria-label="More options"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
@@ -492,11 +508,11 @@ export default function MyPets() {
                   </div>
                 </div>
 
-                {/* Sighting alert for owner: someone spotted your lost pet */}
+                {/* Sighting alert */}
                 {hasSightings && (
                   <Link
                     href={`/my-pet/${pet.id}/sightings`}
-                    className="w-full text-center py-2 px-3 rounded-xl bg-amber-100 border border-amber-300 text-amber-800 text-xs font-medium hover:bg-amber-200 transition"
+                    className="w-full text-center py-2.5 px-3 rounded-xl bg-amber-500/15 border border-amber-400/40 text-amber-800 text-xs font-semibold hover:bg-amber-500/25 hover:border-amber-500/60 transition-all"
                   >
                     Someone spotted your pet — view details ({sightings.length})
                   </Link>
@@ -504,19 +520,19 @@ export default function MyPets() {
                 </div>
               );
             })}
-            {/* Add-another card - same aspect as pet cards */}
+            {/* Add pet card */}
             <button
               type="button"
               onClick={() => setShowForm(true)}
-              className="relative flex flex-col items-center justify-center aspect-[4/5] w-full max-w-[170px] sm:max-w-[185px] rounded-2xl sm:rounded-3xl border-2 border-dashed border-amber-200 bg-amber-50/50 hover:bg-amber-100/60 hover:border-amber-300 hover:-translate-y-1 transition-all duration-300 group/add"
+              className="flex flex-col items-center justify-center aspect-4/5 w-full max-w-[180px] sm:max-w-[200px] rounded-2xl border-2 border-dashed border-amber-300/80 bg-amber-50/60 hover:bg-amber-100/80 hover:border-amber-400 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group/add"
             >
-              <span className="text-4xl sm:text-5xl text-amber-400 group-hover/add:scale-110 transition-transform">+</span>
-              <span className="text-sm font-medium text-amber-700 mt-2">Add pet</span>
+              <span className="text-5xl text-amber-400 group-hover/add:scale-110 transition-transform">+</span>
+              <span className="text-sm font-semibold text-amber-700 mt-2">Add pet</span>
             </button>
           </div>
         )}
 
-        {/* Dropdown portal (fixed so it never gets clipped) */}
+        {/* Dropdown portal */}
         {typeof document !== "undefined" &&
           openMenuId &&
           menuPosition &&
@@ -531,7 +547,7 @@ export default function MyPets() {
                 aria-hidden="true"
               />
               <div
-                className="fixed z-50 w-52 bg-white rounded-xl shadow-xl border border-amber-100/80 py-1.5 [animation:dropdownIn_0.2s_ease-out_both]"
+                className="fixed z-50 w-52 bg-white rounded-xl shadow-xl border border-amber-100/80 py-1.5 animate-[dropdownIn_0.25s_ease-out_both]"
                 style={{
                   bottom: menuPosition.bottom,
                   right: menuPosition.right,
@@ -542,6 +558,17 @@ export default function MyPets() {
                   if (!pet) return null;
                   return (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          setMenuPosition(null);
+                          router.push(`/edit-pet/${pet.id}`);
+                        }}
+                        className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-amber-50 transition"
+                      >
+                        <span aria-hidden>✏️</span> Edit
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -583,6 +610,7 @@ export default function MyPets() {
             </>,
             document.body
           )}
+        </div>
 
         {/* QR Modal */}
         {qrUrl && (
