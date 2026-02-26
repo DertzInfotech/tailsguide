@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Input from "@/shared/Input";
 import { useState, useEffect } from "react";
-import { loginUser } from "@/api/authApi";
+import { loginUser, validateToken } from "@/api/authApi";
 import { useRouter } from "next/navigation";
 import Notification from "@/shared/Notification";
 import Image from "next/image";
@@ -36,6 +36,13 @@ export default function SignIn() {
       localStorage.setItem("userEmail", email);
 
       login(result.token);
+
+      // Validate token with backend (GET /auth/validate-token)
+      try {
+        await validateToken();
+      } catch (_) {
+        // Token saved; validation is best-effort
+      }
 
       showNotification("Logged in successfully!", "success");
 

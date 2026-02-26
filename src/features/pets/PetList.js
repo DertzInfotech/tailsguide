@@ -8,7 +8,12 @@ export default function PetList({
   totalPages,
   loading,
   onPageChange,
-  hidePagination = false
+  hidePagination = false,
+  hideFlyerAndSighting = false,
+  showFooterText = true,
+  cardSize = "normal",
+  emptyTitle = "No active alerts right now",
+  emptyDescription = "That's good news. Your community is safe — we'll notify you instantly if something changes."
 }) {
 
   if (loading) {
@@ -17,7 +22,7 @@ export default function PetList({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-28 rounded-xl bg-gray-100 animate-pulse"
+            className="h-28 rounded-xl bg-white/30 animate-pulse"
           />
         ))}
       </div>
@@ -25,35 +30,39 @@ export default function PetList({
   }
 
   if (!loading && pets.length === 0) {
-  return (
-    <div className="text-center py-12">
-      <div className="text-5xl mb-3">🐾</div>
-      <h3 className="text-lg font-semibold text-gray-800">
-        No active alerts right now
-      </h3>
-      <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1">
-        That’s good news. Your community is safe — we’ll notify you instantly if something changes.
-      </p>
-    </div>
-  );
-}
+    return (
+      <div className="text-center py-12">
+        <div className="text-5xl mb-3">🐾</div>
+        <h3 className="text-lg font-semibold text-white">
+          {emptyTitle}
+        </h3>
+        <p className="text-sm text-white/90 max-w-xs mx-auto mt-1">
+          {emptyDescription}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="flex flex-col h-full">
       {/* Card list */}
-      <div className="flex flex-col">
+      <div className="flex flex-col flex-1 min-h-0">
         {pets.map((pet) => (
           <PetCard
             key={pet.id}
             pet={pet}
             imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
+            hideFlyerAndSighting={hideFlyerAndSighting}
+            cardSize={cardSize}
           />
         ))}
       </div>
 
-      <p className="text-xs text-white text-center mt-4">
-        Showing community alerts in real time
-      </p>
+      {showFooterText && (
+        <p className="text-xs text-white/90 text-center mt-4 shrink-0">
+          Showing community alerts in real time
+        </p>
+      )}
 
       {/* Pagination */}
       {!hidePagination && (

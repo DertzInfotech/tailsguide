@@ -1,101 +1,434 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
+import dynamic from 'next/dynamic';
+import 'leaflet/dist/leaflet.css';
+import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { getSearchPets, getPetMatches, getMyPets } from '@/api/petApi';
+import PetCard from '@/features/pets/PetCard';
+import { useAuth } from '@/context/AuthContext';
+
+const MapContainer = dynamic(
+  () => import('react-leaflet').then((m) => m.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import('react-leaflet').then((m) => m.TileLayer),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import('react-leaflet').then((m) => m.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(
+  () => import('react-leaflet').then((m) => m.Popup),
+  { ssr: false }
+);
+
+function usePetMarkerIcon(isLost) {
+  return useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const L = require('leaflet');
+    const color = isLost ? '#e11d48' : '#059669';
+    return L.divIcon({
+      html: `<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:${color};color:white;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid white;">${isLost ? '🐕' : '🐾'}</span>`,
+      className: 'pet-marker-div',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+  }, [isLost]);
+}
+
+function PetMapMarker({ pet, coords }) {
+  const isLost = (pet.reportType || '').toUpperCase() === 'LOST';
+  const icon = usePetMarkerIcon(isLost);
+  if (!icon) return null;
+  return (
+    <Marker position={coords} icon={icon}>
+      <Popup>
+        <div className="min-w-[140px]">
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold mb-1 ${isLost ? 'bg-rose-500 text-white' : 'bg-emerald-500 text-white'}`}>
+            {pet.reportType || '—'}
+          </span>
+          <p className="font-semibold text-stone-800">{pet.petName || 'Unknown'}</p>
+          {pet.breed && <p className="text-xs text-stone-600">{pet.breed}</p>}
+          {pet.lastSeenLocation && (
+            <p className="text-xs text-stone-500 mt-0.5">📍 {pet.lastSeenLocation}</p>
+          )}
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+const PET_TYPES = ['', 'Dog', 'Cat', 'Bird', 'Other'];
+const DEFAULT_CENTER = [12.9716, 77.5946]; // Bangalore
+const DEFAULT_ZOOM = 11;
+
+// Map location text to [lat, lng] for Bangalore/India areas; unknown locations get center + small offset
+const LOCATION_COORDS = {
+  bangalore: [12.9716, 77.5946],
+  hsr: [12.9121, 77.6446],
+  thippasandra: [12.9650, 77.6420],
+  '4th main thippasandra': [12.9650, 77.6420],
+  koramangala: [12.9352, 77.6245],
+  jayanagar: [12.925, 77.5938],
+  domlur: [12.9606, 77.6376],
+  whitefield: [12.9698, 77.7499],
+  marathahalli: [12.9592, 77.6974],
+  indiranagar: [12.9784, 77.6408],
+  yeswanthpur: [13.0286, 77.5367],
+  sadashivanagar: [13.0169, 77.5832],
+  'kalyan nagar': [13.0281, 77.6433],
+  shivajinagar: [13.0012, 77.6016],
+};
+
+function getPetCoords(pet, index) {
+  const loc = (pet.lastSeenLocation || '').trim().toLowerCase();
+  if (!loc) return [DEFAULT_CENTER[0] + (index % 5) * 0.02, DEFAULT_CENTER[1] + (index % 3) * 0.02];
+  const exact = LOCATION_COORDS[loc];
+  if (exact) return exact;
+  for (const [key, coords] of Object.entries(LOCATION_COORDS)) {
+    if (loc.includes(key) || key.includes(loc)) return coords;
+  }
+  return [DEFAULT_CENTER[0] + (index % 5) * 0.02, DEFAULT_CENTER[1] + (index % 3) * 0.02];
+}
+
+const SEARCH_MODE = 'search';
+const POTENTIAL_MATCH_MODE = 'potential-match';
+
+function normalize(s) {
+  if (s == null || typeof s !== 'string') return '';
+  return s.trim().toLowerCase();
+}
+
+function matchesQuery(pet, q) {
+  if (!q) return true;
+  const k = normalize(q);
+  const name = normalize(pet.petName);
+  const breed = normalize(pet.breed);
+  const location = normalize(pet.lastSeenLocation);
+  const color = normalize(pet.primaryColor);
+  const type = normalize(pet.petType || '');
+  return name.includes(k) || breed.includes(k) || location.includes(k) || color.includes(k) || type.includes(k);
+}
 
 export default function SearchPage() {
+  const { isAuthenticated } = useAuth();
+  const [mode, setMode] = useState(SEARCH_MODE); // 'search' | 'potential-match'
   const [activeView, setActiveView] = useState('grid');
   const [statusFilter, setStatusFilter] = useState('');
   const [animalFilter, setAnimalFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [breedFilter, setBreedFilter] = useState('');
+  const [colorFilter, setColorFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [allPets, setAllPets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Potential Match: user's lost pets + selected pet + matches
+  const [myLostPets, setMyLostPets] = useState([]);
+  const [myLostPetsLoading, setMyLostPetsLoading] = useState(false);
+  const [selectedPetId, setSelectedPetId] = useState('');
+  const [matchPets, setMatchPets] = useState([]);
+  const [matchesLoading, setMatchesLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await getSearchPets(0, 100);
+        if (!cancelled && res?.data?.content) {
+          setAllPets(res.data.content);
+        }
+      } catch (err) {
+        if (!cancelled) setAllPets([]);
+        console.error(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const loadMyLostPets = async () => {
+    if (!isAuthenticated) return;
+    setMyLostPetsLoading(true);
+    try {
+      const res = await getMyPets();
+      const list = Array.isArray(res?.data) ? res.data : [];
+      const lost = list.filter((p) => (p.reportType || '').toUpperCase() === 'LOST');
+      setMyLostPets(lost);
+      if (lost.length) setSelectedPetId((prev) => prev || String(lost[0].id));
+    } catch (err) {
+      setMyLostPets([]);
+      console.error(err);
+    } finally {
+      setMyLostPetsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === POTENTIAL_MATCH_MODE && isAuthenticated) {
+      loadMyLostPets();
+    }
+  }, [mode, isAuthenticated]);
+
+  useEffect(() => {
+    if (mode !== POTENTIAL_MATCH_MODE || !selectedPetId) {
+      setMatchPets([]);
+      return;
+    }
+    let cancelled = false;
+    setMatchesLoading(true);
+    getPetMatches(selectedPetId)
+      .then((res) => {
+        if (!cancelled && Array.isArray(res?.data)) setMatchPets(res.data);
+        else if (!cancelled) setMatchPets([]);
+      })
+      .catch(() => {
+        if (!cancelled) setMatchPets([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMatchesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [mode, selectedPetId]);
+
+  const { locations, breeds, colors } = useMemo(() => {
+    const locs = new Set();
+    const br = new Set();
+    const col = new Set();
+    allPets.forEach((p) => {
+      if (p.lastSeenLocation) locs.add(p.lastSeenLocation.trim());
+      if (p.breed) br.add(p.breed.trim());
+      if (p.primaryColor) col.add(p.primaryColor.trim());
+    });
+    return {
+      locations: [...locs].sort(),
+      breeds: [...br].sort(),
+      colors: [...col].sort(),
+    };
+  }, [allPets]);
+
+  const filteredPets = useMemo(() => {
+    return allPets.filter((pet) => {
+      if (!matchesQuery(pet, searchQuery)) return false;
+      if (statusFilter) {
+        const reportType = (pet.reportType || '').toUpperCase();
+        if (statusFilter === 'lost' && reportType !== 'LOST') return false;
+        if (statusFilter === 'found' && reportType !== 'FOUND') return false;
+      }
+      if (animalFilter) {
+        const type = (pet.petType || '').toLowerCase();
+        if (type !== animalFilter.toLowerCase()) return false;
+      }
+      if (locationFilter && (pet.lastSeenLocation || '').trim() !== locationFilter) return false;
+      if (breedFilter && (pet.breed || '').trim() !== breedFilter) return false;
+      if (colorFilter && (pet.primaryColor || '').trim() !== colorFilter) return false;
+      return true;
+    });
+  }, [allPets, searchQuery, statusFilter, animalFilter, locationFilter, breedFilter, colorFilter]);
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-6 lg:px-8">
-      <section id="search" className="max-w-7xl mx-auto">
+    <main className="min-h-screen relative overflow-hidden">
+      {/* Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-[#faf8f5] via-[#fef7ed] to-[#f5f0e8]" aria-hidden />
+      <div
+        className="fixed inset-0 opacity-[0.04]"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #0f172a 1px, transparent 0)`,
+          backgroundSize: '24px 24px',
+        }}
+        aria-hidden
+      />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl" aria-hidden />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-orange-200/25 rounded-full blur-3xl" aria-hidden />
+
+      <section id="search" className="relative max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
         {/* Header */}
-        <div className="text-center mb-10">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-orange-500 mb-2">
+        <div className="text-center mb-8 sm:mb-10">
+          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.2em] text-amber-600 mb-2">
             Find & Reunite
           </p>
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-2xl sm:text-4xl font-bold text-stone-800 mb-2">
             Search Lost & Found Pets
           </h1>
-          <p className="text-gray-600 text-sm md:text-base max-w-2xl mx-auto">
+          <p className="text-stone-600 text-sm sm:text-base max-w-xl mx-auto">
             Search our database of lost and found pets. Every search brings a pet closer to home.
           </p>
         </div>
 
-        {/* Search Controls */}
-        <div className="bg-white rounded-2xl shadow-md p-6 lg:p-8 mb-8 space-y-6">
-          {/* Search Bar */}
-          <div className="flex gap-3">
-            <div className="flex-1 relative">
+        {/* Mode toggle: Search | Potential Match */}
+        <div className="flex justify-center gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setMode(SEARCH_MODE)}
+            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              mode === SEARCH_MODE
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'bg-white/90 text-stone-600 hover:bg-stone-50 border border-stone-200'
+            }`}
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode(POTENTIAL_MATCH_MODE)}
+            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              mode === POTENTIAL_MATCH_MODE
+                ? 'bg-amber-500 text-white shadow-md'
+                : 'bg-white/90 text-stone-600 hover:bg-stone-50 border border-stone-200'
+            }`}
+          >
+            Potential Match
+          </button>
+        </div>
+
+        {/* Potential Match: select lost pet + results */}
+        {mode === POTENTIAL_MATCH_MODE && (
+          <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/80 overflow-hidden border-l-4 border-l-amber-400 p-4 sm:p-6 lg:p-8 mb-8">
+            {!isAuthenticated ? (
+              <div className="text-center py-10">
+                <p className="text-stone-700 font-medium mb-2">Sign in to find potential matches for your lost pet.</p>
+                <Link href="/signin" className="text-amber-600 font-semibold hover:underline">Sign In</Link>
+              </div>
+            ) : myLostPetsLoading ? (
+              <div className="text-center py-10 text-stone-500">Loading your pets…</div>
+            ) : myLostPets.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-stone-700 font-medium mb-2">Add a lost pet in My Pets to find potential matches.</p>
+                <Link href="/my-pet" className="text-amber-600 font-semibold hover:underline">My Pets</Link>
+              </div>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-stone-600 mb-2">Select your lost pet</label>
+                <select
+                  value={selectedPetId}
+                  onChange={(e) => setSelectedPetId(e.target.value)}
+                  className="w-full max-w-md px-4 py-2.5 rounded-xl border border-stone-200 bg-white text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-400/60 mb-4"
+                >
+                  <option value="">Select a pet</option>
+                  {myLostPets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.petName || 'Unknown'} {p.breed ? `(${p.breed})` : ''}</option>
+                  ))}
+                </select>
+                <p className="text-sm text-stone-500">
+                  We’ll show pets from our list that may match this one by details like color, location, breed, and features.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Search + filters card (only in Search mode) */}
+        {mode === SEARCH_MODE && (
+        <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/80 overflow-hidden border-l-4 border-l-amber-400 p-4 sm:p-6 lg:p-8 mb-8">
+          <div className="flex flex-col gap-4">
+            {/* Search bar */}
+            <div className="relative">
               <input
                 type="text"
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400"
-                placeholder="Search by name, breed, location..."
+                className="w-full pl-4 pr-12 py-3.5 rounded-xl border border-stone-200 bg-white/80 text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
+                placeholder="Search by name, breed, location, color..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-orange-500 hover:text-orange-600">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-600 pointer-events-none">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
+              </span>
+            </div>
+
+            {/* Filters row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+              <select
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white/80 text-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">All status</option>
+                <option value="lost">Lost</option>
+                <option value="found">Found</option>
+              </select>
+
+              <select
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white/80 text-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+                value={animalFilter}
+                onChange={(e) => setAnimalFilter(e.target.value)}
+              >
+                <option value="">All pet types</option>
+                {PET_TYPES.filter(Boolean).map((t) => (
+                  <option key={t} value={t}>{t}s</option>
+                ))}
+              </select>
+
+              <select
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white/80 text-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+              >
+                <option value="">All locations</option>
+                {locations.map((loc) => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+
+              <select
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white/80 text-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+                value={breedFilter}
+                onChange={(e) => setBreedFilter(e.target.value)}
+              >
+                <option value="">All breeds</option>
+                {breeds.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+
+              <select
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-white/80 text-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400"
+                value={colorFilter}
+                onChange={(e) => setColorFilter(e.target.value)}
+              >
+                <option value="">All colors</option>
+                {colors.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('');
+                  setAnimalFilter('');
+                  setLocationFilter('');
+                  setBreedFilter('');
+                  setColorFilter('');
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-600 hover:bg-stone-100 text-sm font-medium transition"
+              >
+                Clear filters
               </button>
             </div>
           </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <select
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">All Status</option>
-              <option value="lost">Lost</option>
-              <option value="found">Found</option>
-              <option value="reunited">Reunited</option>
-            </select>
-
-            <select
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
-              value={animalFilter}
-              onChange={(e) => setAnimalFilter(e.target.value)}
-            >
-              <option value="">All Animals</option>
-              <option value="dog">Dogs</option>
-              <option value="cat">Cats</option>
-              <option value="other">Other</option>
-            </select>
-
-            <select
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 bg-white"
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-            >
-              <option value="">All Locations</option>
-              <option value="delhi">Delhi</option>
-              <option value="mumbai">Mumbai</option>
-              <option value="bangalore">Bangalore</option>
-            </select>
-
-            <button className="w-full px-4 py-2.5 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors">
-              Advanced Filters
-            </button>
-          </div>
         </div>
+        )}
 
-        {/* View Toggle */}
+        {/* View toggle (Search mode only) */}
+        {mode === SEARCH_MODE && (
         <div className="flex justify-center gap-3 mb-8">
           <button
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
-              activeView === 'grid'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
+            type="button"
             onClick={() => setActiveView('grid')}
+            className={`flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-semibold transition-all ${
+              activeView === 'grid'
+                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                : 'bg-white/95 text-stone-600 hover:bg-stone-50 border border-stone-200 shadow-sm'
+            }`}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" />
@@ -103,12 +436,13 @@ export default function SearchPage() {
             Grid
           </button>
           <button
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all ${
-              activeView === 'map'
-                ? 'bg-orange-500 text-white shadow-sm'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
+            type="button"
             onClick={() => setActiveView('map')}
+            className={`flex items-center gap-2.5 px-6 py-3 rounded-full text-sm font-semibold transition-all ${
+              activeView === 'map'
+                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                : 'bg-white/95 text-stone-600 hover:bg-stone-50 border border-stone-200 shadow-sm'
+            }`}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" />
@@ -116,156 +450,109 @@ export default function SearchPage() {
             Map
           </button>
         </div>
+        )}
 
-        {/* Grid View */}
-        {activeView === 'grid' && (
-          <div id="grid-view" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Lost Pet Card */}
-            <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-              <div className="relative">
-                <div className="aspect-[4/3] relative bg-gray-200">
-                  <Image
-                    src="/images/golden-retriever.jpg"
-                    alt="Max"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="absolute top-3 left-3">
-                  <span className="inline-block px-3 py-1 bg-red-500 text-white text-xs font-bold rounded-full">
-                    LOST
-                  </span>
-                </div>
-                <div className="absolute top-3 right-3">
-                  <span className="inline-block px-3 py-1 bg-orange-500 text-white text-xs font-bold rounded-full animate-pulse">
-                    URGENT
-                  </span>
-                </div>
-              </div>
+        {/* Results count (Search mode) */}
+        {mode === SEARCH_MODE && (
+        <p className="text-center text-base text-stone-600 font-medium mb-6">
+          {loading ? 'Loading…' : `${filteredPets.length} pet${filteredPets.length !== 1 ? 's' : ''} found`}
+        </p>
+        )}
 
-              <div className="p-5 space-y-3">
-                <h3 className="text-xl font-bold text-gray-900">Max</h3>
-                <p className="text-sm text-gray-600">
-                  Golden Retriever • Male • 3 years
-                </p>
-
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
-                    Central Park, Delhi
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                    </svg>
-                    Missing for 4 days
-                  </div>
+        {/* Potential Match results */}
+        {mode === POTENTIAL_MATCH_MODE && isAuthenticated && myLostPets.length > 0 && (
+          <>
+            <p className="text-center text-base text-stone-600 font-medium mb-6">
+              {matchesLoading ? 'Loading matches…' : `${matchPets.length} potential match${matchPets.length !== 1 ? 'es' : ''}`}
+            </p>
+            <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/70 overflow-visible p-5 sm:p-8">
+              {matchesLoading ? (
+                <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-36 sm:h-44 rounded-2xl bg-stone-100/80 animate-pulse" />
+                  ))}
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-block px-3 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full border border-red-200">
-                    Medical Needs
-                  </span>
-                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-full border border-blue-200">
-                    Microchipped
-                  </span>
+              ) : matchPets.length === 0 ? (
+                <div className="text-center py-16 sm:py-20">
+                  <div className="text-6xl mb-4">🔍</div>
+                  <h3 className="text-xl font-semibold text-stone-700">No potential matches yet</h3>
+                  <p className="text-stone-500 max-w-sm mx-auto mt-2">
+                    We couldn’t find pets that closely match. Check back later or broaden your pet’s details.
+                  </p>
                 </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-semibold transition-colors">
-                    Contact Owner
-                  </button>
-                  <button className="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors">
-                    Share Alert
-                  </button>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                  {matchPets.map((pet) => (
+                    <PetCard
+                      key={pet.id}
+                      pet={pet}
+                      imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
+                      hideFlyerAndSighting={false}
+                      cardSize="large"
+                    />
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
+          </>
+        )}
 
-            {/* Found Pet Card */}
-            <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-              <div className="relative">
-                <div className="aspect-[4/3] relative bg-gray-200">
-                  <Image
-                    src="/images/persian-cat.jpg"
-                    alt="Persian Cat"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="absolute top-3 left-3">
-                  <span className="inline-block px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                    FOUND
-                  </span>
-                </div>
+        {/* Grid: Search mode */}
+        {mode === SEARCH_MODE && activeView === 'grid' && (
+          <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/70 overflow-visible p-5 sm:p-8">
+            {loading ? (
+              <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-36 sm:h-44 rounded-2xl bg-stone-100/80 animate-pulse" />
+                ))}
               </div>
-
-              <div className="p-5 space-y-3">
-                <h3 className="text-xl font-bold text-gray-900">Persian Cat</h3>
-                <p className="text-sm text-gray-600">
-                  Persian • Female • ~2 years
+            ) : filteredPets.length === 0 ? (
+              <div className="text-center py-16 sm:py-20">
+                <div className="text-6xl mb-4">🐾</div>
+                <h3 className="text-xl font-semibold text-stone-700">No pets match your filters</h3>
+                <p className="text-stone-500 max-w-sm mx-auto mt-2">
+                  Try changing your search or filters to see more lost and found pets.
                 </p>
-
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
-                    Connaught Place, Delhi
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-                    </svg>
-                    Found 2 days ago
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-block px-3 py-1 bg-green-50 text-green-600 text-xs font-medium rounded-full border border-green-200">
-                    Good Health
-                  </span>
-                  <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-xs font-medium rounded-full border border-purple-200">
-                    Well-Groomed
-                  </span>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm font-semibold transition-colors">
-                    Contact Finder
-                  </button>
-                  <button className="flex-1 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors">
-                    Is This My Pet?
-                  </button>
-                </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                {filteredPets.map((pet) => (
+                  <PetCard
+                    key={pet.id}
+                    pet={pet}
+                    imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
+                    hideFlyerAndSighting={false}
+                    cardSize="large"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Map View */}
-        {activeView === 'map' && (
-          <div id="map-view" className="bg-white rounded-2xl shadow-md p-8 lg:p-12">
-            <div className="flex flex-col items-center justify-center py-16 text-center space-y-6">
-              <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Interactive Map View
-                </h3>
-                <p className="text-gray-600 max-w-md mx-auto">
-                  View lost and found pet locations on an interactive map to find pets near you.
-                </p>
-              </div>
-              <button className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold shadow-sm transition-colors">
-                Enable Location Services
-              </button>
+        {/* Map view: Leaflet map with pet location markers (Search mode only) */}
+        {mode === SEARCH_MODE && activeView === 'map' && (
+          <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/70 overflow-hidden">
+            <div className="h-[480px] sm:h-[520px] w-full">
+              <MapContainer
+                center={DEFAULT_CENTER}
+                zoom={DEFAULT_ZOOM}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                {filteredPets.map((pet, index) => {
+                  const coords = getPetCoords(pet, index);
+                  return <PetMapMarker key={pet.id} pet={pet} coords={coords} />;
+                })}
+              </MapContainer>
             </div>
+            <p className="text-center text-sm text-stone-500 py-3 border-t border-amber-100/60">
+              Pet locations are approximate. Click a marker to see details.
+            </p>
           </div>
         )}
       </section>

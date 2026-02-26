@@ -5,7 +5,7 @@ import Link from "next/link";
 import Input from "@/shared/Input";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { registerUser, loginUser } from "@/api/authApi";
+import { registerUser, loginUser, validateToken } from "@/api/authApi";
 import Notification from "@/shared/Notification";
 import { useAuth } from "@/context/AuthContext";
 
@@ -62,6 +62,13 @@ export default function SignUp() {
       localStorage.setItem("tailsToken", loginResult.token);
 
       login(loginResult.token);
+
+      // Validate token with backend (GET /auth/validate-token)
+      try {
+        await validateToken();
+      } catch (_) {
+        // Token saved; validation is best-effort
+      }
 
       /* ---------- SAVE PROFILE DATA ---------- */
       localStorage.setItem("userEmail", email);

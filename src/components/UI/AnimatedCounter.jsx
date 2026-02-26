@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function AnimatedCounter({ value, label }) {
+export default function AnimatedCounter({ value, label, variant = "default" }) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -24,12 +24,13 @@ export default function AnimatedCounter({ value, label }) {
     return () => clearInterval(timer);
   }, [value]);
 
+  const isLight = variant === "light";
   return (
-    <div className="text-center mb-6">
-      <div className="text-4xl font-extrabold text-emerald-600">
+    <div className="text-center mb-0">
+      <div className={`text-3xl sm:text-4xl font-bold tabular-nums ${isLight ? "text-white" : "text-amber-900"}`}>
         {count.toLocaleString()}
       </div>
-      <p className="text-sm text-gray-600 mt-1">
+      <p className={`text-sm mt-1 ${isLight ? "text-white/90" : "text-amber-800/80"}`}>
         {label}
       </p>
     </div>
