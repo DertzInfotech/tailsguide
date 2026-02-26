@@ -56,7 +56,7 @@ export default function Header() {
         "
       >
 
-        <nav className="flex items-center lg:justify-around justify-between gap-4 pt-2 pb-2 pr-5 pl-5">
+        <nav className="flex items-center lg:justify-around justify-between gap-4 py-3 px-4 sm:py-2 sm:px-5 lg:pt-2 lg:pb-2 lg:pr-5 lg:pl-5">
           {/* Logo */}
           <div className="flex items-center gap-1 text-[21px] font-bold text-orange-primary pt-0.5">
             <i className="text-[28px]">

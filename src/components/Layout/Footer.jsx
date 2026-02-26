@@ -1,7 +1,7 @@
 export default function Footer() {
   return (
     <footer className="relative z-50 bg-[#f6f1eb]/85 backdrop-blur-md border-t border-[#c8b4a0]/30">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between text-sm text-[#3b2f26]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-4 lg:py-4 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 text-sm text-[#3b2f26]">
         <span className="font-medium">
           © 2026 tailsGuide. All rights reserved.
         </span>

@@ -31,13 +31,13 @@ export default function SuccessStoriesSection() {
   }, [scrollPaused]);
 
   return (
-    <div className="dashboard-section-card p-4 sm:p-5 relative flex flex-col min-h-0">
+    <div className="dashboard-section-card p-5 sm:p-5 lg:p-5 relative flex flex-col min-h-0">
       {/* Cartoon pet - success (happy dog with heart), left side */}
-      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-0 opacity-90 scale-90 origin-top-left">
+      <div className="absolute top-4 left-4 sm:top-4 sm:left-4 z-0 opacity-90 scale-90 origin-top-left">
         <CartoonCardPet variant="success" />
       </div>
-      {/* Header - same alignment as Active Alerts */}
-      <div className="flex items-center justify-between gap-4 pb-4 dashboard-section-header-divider border-b relative z-10 pl-16 sm:pl-20 shrink-0">
+      {/* Header - same alignment as Active Alerts; more padding on mobile/tablet */}
+      <div className="flex items-center justify-between gap-4 pb-5 lg:pb-4 dashboard-section-header-divider border-b relative z-10 pl-20 sm:pl-20 shrink-0">
         <div className="flex items-center gap-3">
           <div className="dashboard-section-icon-wrap flex items-center justify-center w-9 h-9 rounded-xl text-white">
             <FontAwesomeIcon icon={faTrophy} className="text-base" />
@@ -54,7 +54,7 @@ export default function SuccessStoriesSection() {
       </div>
 
       {/* Fixed counter: "10" / Pets Reunited - does not scroll */}
-      <div className="dashboard-section-counter-box p-4 sm:p-5 shrink-0 mt-3">
+      <div className="dashboard-section-counter-box p-5 sm:p-5 lg:p-5 shrink-0 mt-4 lg:mt-3">
         <AnimatedCounter
           value={SUCCESS_STORIES_COUNT}
           label="Pets Reunited with Their Families"
@@ -63,7 +63,7 @@ export default function SuccessStoriesSection() {
       </div>
 
       {/* Scrollable list: 3 cards visible at a time, infinite auto-scroll */}
-      <div className="relative mt-3 pt-1 flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="relative mt-4 lg:mt-3 pt-1 flex-1 min-h-0 flex flex-col overflow-hidden">
         <div
           ref={scrollRef}
           className="alerts-scroll success-stories-scroll-three-cards flex-1 min-h-0 overflow-y-auto"

@@ -648,3 +648,41 @@ header>nav {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
+/* ============================================
+   MOBILE & TABLET ONLY (max-width: 1023px)
+   Desktop (lg) unchanged.
+   ============================================ */
+@media (max-width: 1023px) {
+  .pet-strip-wrapper {
+    margin-bottom: 12px;
+    max-height: 280px;
+  }
+
+  .alerts-scroll {
+    max-height: 380px;
+  }
+
+  .alerts-scroll-three-cards {
+    max-height: 320px;
+  }
+
+  .success-stories-scroll-three-cards {
+    max-height: 380px;
+  }
+
+  .page-glass-bg {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+  }
+
+  /* Scan page: more padding on small screens */
+  .scan-page-wrapper {
+    padding: 24px 20px !important;
+  }
+
+  .scan-page-card {
+    padding: 24px !important;
+    border-radius: 20px !important;
+  }
+}
+

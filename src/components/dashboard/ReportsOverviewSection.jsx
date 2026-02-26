@@ -16,14 +16,14 @@ export default function ReportsOverviewSection() {
 
   return (
     <FadeIn delay={150}>
-      <div className="max-w-6xl mx-auto mb-14">
-        <div className="dashboard-section-card p-6 sm:p-8 relative animate-card-enter">
+      <div className="max-w-6xl mx-auto mb-14 max-lg:mb-12 max-lg:px-0">
+        <div className="dashboard-section-card p-6 sm:p-6 lg:p-8 relative animate-card-enter">
           {/* Cartoon pet - reports (dog with clipboard), left side */}
           <div className="absolute top-5 left-5 sm:top-6 sm:left-6 z-0 opacity-90">
             <CartoonCardPet variant="reports" />
           </div>
-          {/* Header */}
-          <div className="flex flex-wrap items-start justify-between gap-4 pb-6 dashboard-section-header-divider border-b relative z-10 pl-20 sm:pl-24">
+          {/* Header — more padding on mobile/tablet */}
+          <div className="flex flex-wrap items-start justify-between gap-4 pb-6 lg:pb-6 dashboard-section-header-divider border-b relative z-10 pl-24 sm:pl-24 lg:pl-24">
             <div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white drop-shadow-sm">
                 Lost & Found Reports
@@ -41,7 +41,7 @@ export default function ReportsOverviewSection() {
           </div>
 
           {/* Tabs */}
-          <div className="dashboard-section-tabs-wrap flex gap-0.5 mt-5 w-fit">
+          <div className="dashboard-section-tabs-wrap flex gap-0.5 mt-6 lg:mt-5 w-fit">
             <button
               onClick={() => setActiveTab("LOST")}
               className={`px-4 py-2.5 rounded-[0.5rem] text-sm transition-all duration-200
@@ -65,7 +65,7 @@ export default function ReportsOverviewSection() {
           </div>
 
           {/* Content - list extends down, no gap */}
-          <div className="alerts-scroll alerts-scroll-expand mt-5 pt-1">
+          <div className="alerts-scroll alerts-scroll-expand mt-6 lg:mt-5 pt-1">
             {activeTab === "LOST" && (
               <PetList
                 pets={lostPets}

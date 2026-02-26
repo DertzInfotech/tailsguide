@@ -63,17 +63,17 @@ export default function Home() {
           className="pointer-events-none absolute inset-0 opacity-[0.035] bg-[url('/noise.png')] animate-[grainBreath_20s_ease-in-out_infinite]"
         />
 
-        {/* Hero */}
-        <section className="px-6 pt-6 pb-16 relative">
+        {/* Hero — more padding on mobile/tablet; desktop unchanged */}
+        <section className="px-4 sm:px-6 pt-8 pb-20 sm:pt-6 sm:pb-16 lg:pt-6 lg:pb-16 relative">
           <HeroSection />
         </section>
 
-        {/* Alerts + Stats */}
-        <section className="px-6 pt-0 pb-12 rounded-t-[2.5rem] page-glass-bg relative">
+        {/* Alerts + Stats — more padding on mobile/tablet; desktop lg unchanged */}
+        <section className="px-4 sm:px-6 lg:px-6 pt-4 pb-16 md:pb-14 lg:pt-0 lg:pb-12 rounded-t-[2.5rem] page-glass-bg relative">
           <ReportsOverviewSection />
 
-          <div className="max-w-6xl mx-auto mt-8 mb-6 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 items-stretch">
+          <div className="max-w-6xl mx-auto mt-10 mb-8 sm:mt-8 sm:mb-6 lg:mt-8 lg:mb-6 relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-10 items-stretch">
               <AlertsSection
                 pets={pets}
                 currentPage={currentPage}
@@ -85,7 +85,7 @@ export default function Home() {
             </div>
           </div>
 
-          <section className="pt-4 pb-4">
+          <section className="pt-6 pb-8 sm:pt-4 sm:pb-4 lg:pt-4 lg:pb-4">
             <div className="max-w-6xl mx-auto">
               {loading ? (
                 <StatsSkeleton />

@@ -93,13 +93,13 @@ export default function AlertsSection({
   const showInfiniteScroll = !loading && pets?.length > 0;
 
   return (
-    <div className="dashboard-section-card p-4 sm:p-5 relative flex flex-col min-h-0">
+    <div className="dashboard-section-card p-5 sm:p-5 lg:p-5 relative flex flex-col min-h-0">
       {/* Cartoon pet - alerts (alert cat), left side */}
-      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-0 opacity-90 scale-90 origin-top-left">
+      <div className="absolute top-4 left-4 sm:top-4 sm:left-4 z-0 opacity-90 scale-90 origin-top-left">
         <CartoonCardPet variant="alerts" />
       </div>
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 pb-4 dashboard-section-header-divider border-b relative z-10 pl-16 sm:pl-20 shrink-0">
+      {/* Header — more padding on mobile/tablet */}
+      <div className="flex items-center justify-between gap-3 pb-5 lg:pb-4 dashboard-section-header-divider border-b relative z-10 pl-20 sm:pl-20 shrink-0">
         <div className="flex items-center gap-3">
           <div className="dashboard-section-icon-wrap relative flex items-center justify-center w-9 h-9 rounded-xl text-white">
             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-400 animate-pulse ring-2 ring-white/80" />
@@ -121,7 +121,7 @@ export default function AlertsSection({
       </div>
 
       {/* Scroll area: duplicated list = seamless infinite loop; footer fixed at bottom */}
-      <div className="relative mt-3 pt-1 flex flex-col overflow-hidden">
+      <div className="relative mt-4 lg:mt-3 pt-1 flex flex-col overflow-hidden">
         <div
           className="alerts-scroll-viewport overflow-hidden shrink-0"
           style={{ height: ALERTS_VIEWPORT_HEIGHT_PX }}

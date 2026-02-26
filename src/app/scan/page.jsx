@@ -126,8 +126,8 @@ export default function ScanQRPage() {
         : '/scan';
 
     return (
-      <div style={styles.wrapper}>
-        <div style={styles.card}>
+      <div className="scan-page-wrapper" style={styles.wrapper}>
+        <div className="scan-page-card" style={styles.card}>
           <h2>Scan QR Code</h2>
           <p>QR scanning works on mobile devices only.</p>
           <p style={styles.helper}>
@@ -141,8 +141,8 @@ export default function ScanQRPage() {
 
   /* ---------- UI ---------- */
   return (
-    <div style={styles.wrapper}>
-      <div style={styles.card}>
+    <div className="scan-page-wrapper" style={styles.wrapper}>
+      <div className="scan-page-card" style={styles.card}>
         <h2>Scan Pet QR</h2>
         <p style={styles.sub}>Point your camera at the pet’s collar</p>
 
