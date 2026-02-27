@@ -8,7 +8,7 @@ import CountUp from "@/components/UI/CountUp";
 export default function HeroSection() {
   return (
     <section className="
-  pt-4 pb-16 lg:pt-6 lg:pb-20
+  pt-6 pb-20 sm:pt-5 sm:pb-20 lg:pt-6 lg:pb-20
   relative overflow-hidden
   bg-[linear-gradient(to_bottom,rgba(249,154,0,0.95),rgba(255,156,64,0.98))]
 ">
@@ -16,17 +16,17 @@ export default function HeroSection() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-[2.5rem]">
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 sm:gap-12 lg:gap-16 items-center">
 
             {/* Text */}
             <div
-              className="text-center lg:text-left space-y-8"
+              className="text-center lg:text-left space-y-10 lg:space-y-8"
               style={{ color: "var(--foreground)" }}
             >
               <div>
 
                 {/* PET PEEK STRIP */}
-                <div className="pet-strip-wrapper mb-1">
+                <div className="pet-strip-wrapper mb-2 sm:mb-1">
                   <img
                     src="/images/pet-strip.png"
                     alt="Cat and dog peeking through fabric"
@@ -35,14 +35,14 @@ export default function HeroSection() {
                 </div>
 
                 <h1
-                  className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-3 tracking-tight"
+                  className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-4 sm:mb-3 lg:mb-3 tracking-tight"
                   style={{ color: "#2b1e00" }}
                 >
                   Every Pet Counts. Every Paw Matters.
                 </h1>
 
                 <p
-                  className="text-lg lg:text-xl max-w-xl mx-auto lg:mx-0"
+                  className="text-base sm:text-lg lg:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed"
                   style={{ color: "#4a3300" }}
                 >
                   Smart QR tags, AI photo ID, wellness tracking, and community care
@@ -50,7 +50,7 @@ export default function HeroSection() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap gap-8 justify-center lg:justify-start">
+              <div className="flex flex-wrap gap-10 lg:gap-8 justify-center lg:justify-start">
                 {heroStatsInfo.map((stat, i) => (
                   <div key={i} className="text-center">
                     <div
@@ -71,14 +71,14 @@ export default function HeroSection() {
               </div>
             </div>
 
-            {/* Action Tiles */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-stretch">
+            {/* Action Tiles — more gap on mobile/tablet */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 lg:gap-6 items-stretch">
               {mainTilesInfo.map((tile, i) => (
                 <Link href={tile.link} key={i}>
                   <button
                     className="
     w-full h-full
-    rounded-2xl p-5 sm:p-7 glass-card
+    rounded-2xl p-6 sm:p-6 lg:p-7 glass-card
     hover:-translate-y-1
     hover:shadow-[0_18px_45px_rgba(0,0,0,0.18)]
     transition-transform

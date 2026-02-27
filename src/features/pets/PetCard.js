@@ -67,8 +67,9 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
     <div
       className={`
         group relative rounded-xl
-        flex border-2 transition-all duration-200 bg-white shadow-md
+        flex flex-col lg:flex-row border-2 transition-all duration-200 bg-white shadow-md
         ${isLarge ? "p-6 mb-6 gap-6 overflow-visible" : isCompact ? "p-3 mb-3 gap-3 overflow-hidden" : "p-4 mb-4 gap-4 overflow-hidden"}
+        ${!isLarge && !isCompact ? "max-lg:p-5 max-lg:gap-4" : ""}
         ${isLarge ? "min-w-0" : ""}
         ${isLost
           ? "border-orange-400/50 border-l-4 border-l-rose-500"
@@ -80,61 +81,64 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
       `}
     >
 
-      {/* Image + badge - extra margin when large so circle isn't clipped */}
-      <div className={`relative shrink-0 ${isLarge ? "flex items-center" : ""}`}>
-        <div className={`rounded-full overflow-hidden flex-shrink-0 ${isLarge ? "w-24 h-24" : isCompact ? "w-12 h-12" : "w-16 h-16"}`}>
-          <img
-            src={imageUrl}
-            alt={pet.petName}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-            onError={(e) => {
-              e.currentTarget.src = "/dog-default.png";
-            }}
-          />
-        </div>
+      {/* Row 1 on mobile: Image + Info. On desktop: same as before (Image, Info, Actions in one row) */}
+      <div className="flex flex-1 min-w-0 gap-3 lg:gap-4">
+        {/* Image + badge - extra margin when large so circle isn't clipped */}
+        <div className={`relative shrink-0 ${isLarge ? "flex items-center" : ""}`}>
+          <div className={`rounded-full overflow-hidden flex-shrink-0 ${isLarge ? "w-24 h-24" : isCompact ? "w-12 h-12" : "w-16 h-16"}`}>
+            <img
+              src={imageUrl}
+              alt={pet.petName}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              onError={(e) => {
+                e.currentTarget.src = "/dog-default.png";
+              }}
+            />
+          </div>
 
-        <span
-          className={`
-            absolute -bottom-2 -right-2
-            px-2 py-0.5 rounded-full font-medium
-            ${isLarge ? "text-[11px]" : isCompact ? "text-[9px]" : "text-[10px]"}
-            ${isLost ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}
-          `}
-        >
-          {pet.reportType}
-        </span>
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between gap-2 items-start">
-          <h4 className={`font-semibold text-orange-900 ${isLarge ? "text-lg line-clamp-2 break-words" : isCompact ? "text-sm truncate" : "truncate"}`}>
-            {pet.petName || "Unknown"}
-          </h4>
-          <span className={`text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800 shrink-0 font-medium ${isLarge ? "max-w-[220px] whitespace-normal text-left" : isCompact ? "max-w-[100px] truncate text-[10px] px-1.5 py-0.5" : "max-w-[140px] truncate"}`} title={dateLabel}>
-            {dateLabel}
+          <span
+            className={`
+              absolute -bottom-2 -right-2
+              px-2 py-0.5 rounded-full font-medium
+              ${isLarge ? "text-[11px]" : isCompact ? "text-[9px]" : "text-[10px]"}
+              ${isLost ? "bg-rose-500 text-white" : "bg-emerald-500 text-white"}
+            `}
+          >
+            {pet.reportType}
           </span>
         </div>
-        <p className={`text-orange-800 mt-1 ${isLarge ? "text-sm line-clamp-2 break-words" : isCompact ? "text-xs truncate" : "text-sm truncate"}`}>
-          📍 {pet.lastSeenLocation}
-        </p>
 
-        {isRecentlyFound && (
-          <span className={`inline-block rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 ${isCompact ? "mt-1 px-1.5 py-0.5" : "mt-2 px-2 py-0.5"}`}>
-            Recently Found 🎉
-          </span>
-        )}
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-2">
+            <h4 className={`font-semibold text-orange-900 ${isLarge ? "text-lg line-clamp-2 break-words" : isCompact ? "text-sm truncate" : "max-lg:line-clamp-2 max-lg:break-words lg:truncate"}`}>
+              {pet.petName || "Unknown"}
+            </h4>
+            <span className={`text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800 shrink-0 font-medium w-fit ${isLarge ? "max-w-[220px] whitespace-normal text-left" : isCompact ? "max-w-[100px] truncate text-[10px] px-1.5 py-0.5" : "max-w-[140px] truncate"}`} title={dateLabel}>
+              {dateLabel}
+            </span>
+          </div>
+          <p className={`text-orange-800 mt-1 ${isLarge ? "text-sm line-clamp-2 break-words" : isCompact ? "text-xs truncate" : "text-sm max-lg:line-clamp-2 max-lg:break-words lg:truncate"}`}>
+            📍 {pet.lastSeenLocation}
+          </p>
+
+          {isRecentlyFound && (
+            <span className={`inline-block rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 ${isCompact ? "mt-1 px-1.5 py-0.5" : "mt-2 px-2 py-0.5"}`}>
+              Recently Found 🎉
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 sm:gap-3 justify-end flex-wrap">
+      {/* Actions: full width below on mobile/tablet so no overlap; same row on desktop */}
+      <div className="flex items-center gap-2 sm:gap-3 max-lg:justify-start max-lg:flex-wrap max-lg:w-full lg:justify-end lg:flex-wrap shrink-0">
         {/* Flyer + Preview: grouped “get flyer” actions */}
         {!hideFlyerAndSighting && isLost && (
-          <div className="flex flex-col items-stretch rounded-2xl border border-orange-200/80 bg-linear-to-br from-orange-50/90 to-amber-50/80 p-1.5 shadow-sm">
+          <div className="flex flex-col items-stretch rounded-2xl border border-orange-200/80 bg-linear-to-br from-orange-50/90 to-amber-50/80 p-1.5 shadow-sm max-lg:min-w-[120px]">
             <button
               type="button"
               onClick={() => openFlyerInNewWindow(pet.id)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 active:scale-[0.98] shadow-sm transition-all duration-200 ease-out"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 max-lg:py-2 rounded-xl text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 active:scale-[0.98] shadow-sm transition-all duration-200 ease-out whitespace-nowrap"
             >
               <FlyerIcon className="w-3.5 h-3.5 shrink-0" />
               Get flyer
@@ -203,7 +207,7 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
         {!hideFlyerAndSighting && isLost && (
           <Link
             href={`/spotted/${pet.id}`}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold text-white whitespace-nowrap
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold text-white whitespace-nowrap min-w-0
               bg-linear-to-b from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700
               shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow
               border border-amber-400/30 transition-all duration-200 ease-out"

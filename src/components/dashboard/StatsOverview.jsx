@@ -21,24 +21,24 @@ export default function StatsOverview({ activeAlertsCount }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-6">
       {cards.map((card, i) => (
         <div
           key={i}
-          className="group relative isolate rounded-2xl p-4 sm:p-5 lg:p-7 text-center
+          className="group relative isolate rounded-2xl p-5 sm:p-5 lg:p-7 text-center
           bg-[#fee3b9]
           transition-all duration-300 ease-out
           hover:-translate-y-1
           hover:shadow-[0_20px_45px_rgba(0,0,0,0.18)]"
         >
           <div
-            className="text-4xl font-bold mb-1"
+            className="text-4xl font-bold mb-1.5 lg:mb-1"
             style={{ color: "var(--deep-orange)" }}
           >
             {card.number}
           </div>
           <div
-            className="text-sm"
+            className="text-base lg:text-sm"
             style={{ color: "var(--text-muted)" }}
           >
             {card.label}
