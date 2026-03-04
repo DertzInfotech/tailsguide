@@ -282,7 +282,7 @@ export default function ReportPage() {
     }, [notification]);
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-12 px-4">
+    <div className="min-h-screen bg-linear-to-br from-orange-50 to-orange-100 py-6 sm:py-12 px-3 sm:px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
@@ -326,31 +326,31 @@ export default function ReportPage() {
           </button>
         </div>
 
-        {/* Lost Pet Form */}
+        {/* Lost Pet Form — mobile: single-column layout, more padding, step indicator scrollable */}
         {reportType === 'lost' && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
-            <div className="flex items-center justify-between mb-8">
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8">
+            <div className="flex items-center gap-2 sm:gap-0 sm:justify-between mb-6 sm:mb-8 overflow-x-auto pb-2 sm:pb-0 min-w-0">
               {['Pet Details', 'Location & Date', 'Contact Info', 'Medical Info'].map(
                 (label, index) => (
                   <div
                     key={index}
-                    className={`flex items-center ${index <= currentStep
+                    className={`flex items-center shrink-0 ${index <= currentStep
                         ? 'text-orange-primary font-semibold'
                         : 'text-gray-400'
                       }`}
                   >
                     <div
-                      className={`w-10 h-10 rounded-full border-2 flex items-center justify-center mr-2 ${index <= currentStep
+                      className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center mr-1.5 sm:mr-2 ${index <= currentStep
                           ? 'bg-orange-50 border-orange-primary text-orange-secondary'
                           : 'bg-gray-100 border-gray-300 text-gray-400'
                         }`}
                     >
                       {index + 1}
                     </div>
-                    <span className="hidden sm:inline">{label}</span>
+                    <span className="hidden sm:inline text-sm lg:text-base">{label}</span>
                     {index < 3 && (
                       <div
-                        className={`h-0.5 w-8 mx-2 ${index < currentStep ? 'bg-orange-primary' : 'bg-gray-300'
+                        className={`hidden sm:block h-0.5 w-6 lg:w-8 mx-1 lg:mx-2 ${index < currentStep ? 'bg-orange-primary' : 'bg-gray-300'
                           }`}
                       />
                     )}
@@ -361,7 +361,7 @@ export default function ReportPage() {
 
             {currentStep === 0 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Pet Details</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Pet Details</h2>
                 <div>
                   <p className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</p>
                   <p className="text-sm text-gray-500 mb-2">Photo gallery (max {MAX_PHOTOS}). First primary photo is used for AI.</p>
@@ -445,8 +445,8 @@ export default function ReportPage() {
                   )}
                 </div>
 
-                {/* Other form fields... */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-10">
+                {/* Other form fields — mobile: single column to avoid overlay/truncation */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-7 mt-8 sm:mt-10">
                   <div>
                     <Input
                       id="petname"
@@ -562,7 +562,7 @@ export default function ReportPage() {
             {currentStep === 1 && (
               <div>
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Location & Date</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Location & Date</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <div>
@@ -617,7 +617,7 @@ export default function ReportPage() {
             {currentStep === 2 && (
               <div>
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Contact Info</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Contact Info</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
@@ -697,7 +697,7 @@ export default function ReportPage() {
             {currentStep === 3 && (
               <div>
                 <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-800 mb-4">Medical Info</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">Medical Info</h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
                   <div>
@@ -718,7 +718,7 @@ export default function ReportPage() {
                       onChange={(e) => setVeterinarian(e.target.value)}
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="lg:col-span-2">
                     <label
                       className="block text-sm font-medium text-gray-600 mb-2"
                     >
@@ -731,7 +731,7 @@ export default function ReportPage() {
                       onChange={(e) => setMedicalCondition(e.target.value)}
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div className="lg:col-span-2">
                     <label
                       className="block text-sm font-medium text-gray-600 mb-2"
                     >
@@ -791,8 +791,8 @@ export default function ReportPage() {
         )}
 
         {reportType === 'found' && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
+          <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-6">Found Pet Report</h2>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</label>
@@ -902,11 +902,12 @@ export default function ReportPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-7 mt-10">
+            {/* Mobile: single column so labels and fields don't overlay */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-7 mt-8 sm:mt-10">
               <div>
                 <Input
                   id="foundpetlocation"
-                  label="Where did you found the pet?"
+                  label="Where did you find the pet?"
                   type="text"
                   value={foundLocation}
                   onChange={(e) => setFoundLocation(e.target.value)}
@@ -939,7 +940,7 @@ export default function ReportPage() {
                   <option>Critical Condition</option>
                 </select>
               </div>
-              <div className="col-span-2">
+              <div className="lg:col-span-2">
                 <label
                   className="block text-sm font-medium text-gray-600 mb-2"
                 >
@@ -952,7 +953,7 @@ export default function ReportPage() {
                   onChange={(e) => setPetDescription(e.target.value)}
                 />
               </div>
-              <div className="col-span-2">
+              <div className="lg:col-span-2">
                 <label
                   className="block text-sm font-medium text-gray-600 mb-2"
                 >
@@ -965,9 +966,9 @@ export default function ReportPage() {
                   onChange={(e) => setCareArrangement(e.target.value)}
                 />
               </div>
-              <div className="col-span-2 mb-5">
-                <h4 className="text-xl font-semibold mb-2  mt-3 text-gray-600">Your Contact Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+              <div className="lg:col-span-2 mb-5">
+                <h4 className="text-xl font-semibold mb-2 mt-3 text-gray-600">Your Contact Information</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-7">
                   <div>
                     <Input
                       id="foundercontactname"
