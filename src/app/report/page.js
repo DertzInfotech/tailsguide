@@ -59,6 +59,18 @@ export default function ReportPage() {
   const [foundersEmail, setFoundersEmail] = useState('');
   const [careArrangement, setCareArrangement] = useState('');
 
+  // Auto-populate date & time fields with current local date/time
+  useEffect(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    if (!lastSeenDate) setLastSeenDate(today);
+    if (!lastSeenTime) setLastSeenTime(time);
+    if (!foundDate) setFoundDate(today);
+  }, []);
+
   const handleTypeChange = (type) => {
     setReportType(type);
     setCurrentStep(0);

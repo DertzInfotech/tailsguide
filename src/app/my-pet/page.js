@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getMyPets, deletePet, getPetSightings, getPetCollarQr, reportPet } from "@/api/petApi";
+import { getMyPets, getAllPets, deletePet, getPetSightings, getPetCollarQr, reportPet } from "@/api/petApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -32,7 +32,11 @@ export default function MyPets() {
   const [breed, setBreed] = useState("");
   const [addReportType, setAddReportType] = useState("REGISTERED");
   const [addFoundLocation, setAddFoundLocation] = useState("");
-  const [addFoundDate, setAddFoundDate] = useState("");
+  const [addFoundDate, setAddFoundDate] = useState(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  });
 
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState(null); // { bottom, right } for fixed dropdown
@@ -51,14 +55,52 @@ export default function MyPets() {
 
   const router = useRouter();
 
-  /* ---------- FETCH PETS ---------- */
+  /* ---------- FETCH PETS ----------
+     Primary source: /pet/my-pets (backend-owned).
+     Fallback: /pet/all filtered by owner email/phone so newly added REGISTERED pets always show
+     even if /my-pets doesn't return them yet.
+  */
   const fetchPets = async () => {
     try {
-      const res = await getMyPets();
-      const data = res.data;
-      const list = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
-      setPets(list);
-      return list;
+      const ownerEmail =
+        (typeof window !== "undefined" && (localStorage.getItem("email") || localStorage.getItem("userEmail"))) || "";
+      const ownerPhone =
+        (typeof window !== "undefined" &&
+          (localStorage.getItem("phone") ||
+            localStorage.getItem("defaultOwnerPhone") ||
+            localStorage.getItem("userMobile"))) ||
+        "";
+
+      const [myRes, allRes] = await Promise.allSettled([getMyPets(), getAllPets()]);
+
+      let myList = [];
+      if (myRes.status === "fulfilled") {
+        const data = myRes.value.data;
+        myList = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
+      }
+
+      let fallbackList = [];
+      if (allRes.status === "fulfilled") {
+        const data = allRes.value.data;
+        const all = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
+        if (ownerEmail || ownerPhone) {
+          fallbackList = all.filter((p) => {
+            const matchesEmail = ownerEmail && p?.ownerEmail === ownerEmail;
+            const matchesPhone = ownerPhone && p?.ownerPhone === ownerPhone;
+            return matchesEmail || matchesPhone;
+          });
+        }
+      }
+
+      const mergedById = {};
+      [...myList, ...fallbackList].forEach((p) => {
+        if (p && p.id != null) {
+          mergedById[p.id] = p;
+        }
+      });
+      const finalList = Object.values(mergedById);
+      setPets(finalList);
+      return finalList;
     } catch (err) {
       console.error("Failed to load pets", err);
       setPets([]);
