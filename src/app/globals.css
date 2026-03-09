@@ -286,6 +286,16 @@ header>nav {
   font-weight: 600;
 }
 
+/* Drawer menu: only the current page link gets highlighted (avoids multiple items showing active) */
+.drawer-nav-links .nav-link.drawer-nav-active {
+  color: var(--accent-main);
+  background-color: rgba(255, 154, 0, 0.15);
+  font-weight: 600;
+}
+.drawer-nav-links .nav-link.drawer-nav-active::after {
+  width: 100%;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;

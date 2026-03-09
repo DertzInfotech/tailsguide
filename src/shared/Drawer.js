@@ -64,27 +64,27 @@ export default function Drawer({ isDrawerOpen, onClose }) {
             </button>
           </div>
 
-          {/* Links — more gap on mobile/tablet for touch; auth-aware: Sign In/Up when signed out, Profile/My Pets + Logout when signed in */}
-          <div className="flex flex-col gap-4">
-            <Link href="/" onClick={onClose} className={pathname === "/" ? "nav-link active" : "nav-link"}>Dashboard</Link>
-            <Link href="/report" onClick={onClose} className={pathname === "/report" ? "nav-link active" : "nav-link"}>Report</Link>
-            <Link href="/search" onClick={onClose} className={pathname === "/search" ? "nav-link active" : "nav-link"}>Search</Link>
-            <Link href="/shelters" onClick={onClose} className="nav-link">Shelters</Link>
-            <Link href="/community" onClick={onClose} className="nav-link">Community</Link>
-            <Link href="/resources" onClick={onClose} className="nav-link">Resources</Link>
+          {/* Links — only current page gets isActive; use drawer-specific class so only one item highlights */}
+          <div className="flex flex-col gap-4 drawer-nav-links">
+            <Link href="/" onClick={onClose} className={pathname === "/" ? "nav-link drawer-nav-active" : "nav-link"}>Dashboard</Link>
+            <Link href="/report" onClick={onClose} className={pathname === "/report" || pathname.startsWith("/report/") ? "nav-link drawer-nav-active" : "nav-link"}>Report</Link>
+            <Link href="/search" onClick={onClose} className={pathname === "/search" || pathname.startsWith("/search/") ? "nav-link drawer-nav-active" : "nav-link"}>Search</Link>
+            <Link href="/shelters" onClick={onClose} className={pathname === "/shelters" || pathname.startsWith("/shelters/") ? "nav-link drawer-nav-active" : "nav-link"}>Shelters</Link>
+            <Link href="/community" onClick={onClose} className={pathname === "/community" || pathname.startsWith("/community/") ? "nav-link drawer-nav-active" : "nav-link"}>Community</Link>
+            <Link href="/resources" onClick={onClose} className={pathname === "/resources" || pathname.startsWith("/resources/") ? "nav-link drawer-nav-active" : "nav-link"}>Resources</Link>
 
             {isAuthenticated ? (
               <>
-                <Link href="/profile" onClick={onClose} className={pathname === "/profile" ? "nav-link active" : "nav-link"}>My Profile</Link>
-                <Link href="/my-pet" onClick={onClose} className={pathname === "/my-pet" ? "nav-link active" : "nav-link"}>My Pets 🐾</Link>
+                <Link href="/profile" onClick={onClose} className={pathname === "/profile" || pathname.startsWith("/profile/") ? "nav-link drawer-nav-active" : "nav-link"}>My Profile</Link>
+                <Link href="/my-pet" onClick={onClose} className={pathname === "/my-pet" || pathname.startsWith("/my-pet/") ? "nav-link drawer-nav-active" : "nav-link"}>My Pets 🐾</Link>
                 <button type="button" onClick={handleLogout} className="nav-link text-left w-full border-0 bg-transparent cursor-pointer font-inherit">
                   Log Out
                 </button>
               </>
             ) : (
               <>
-                <Link href="/signin" onClick={onClose} className={pathname === "/signin" ? "nav-link active" : "nav-link"}>Sign In</Link>
-                <Link href="/signup" onClick={onClose} className={pathname === "/signup" ? "nav-link active" : "nav-link"}>Sign Up</Link>
+                <Link href="/signin" onClick={onClose} className={pathname === "/signin" ? "nav-link drawer-nav-active" : "nav-link"}>Sign In</Link>
+                <Link href="/signup" onClick={onClose} className={pathname === "/signup" ? "nav-link drawer-nav-active" : "nav-link"}>Sign Up</Link>
               </>
             )}
           </div>

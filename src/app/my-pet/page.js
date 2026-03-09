@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getMyPets, deletePet, getPetSightings, getPetCollarQr } from "@/api/petApi";
+import { getMyPets, getAllPets, deletePet, getPetSightings, getPetCollarQr, reportPet } from "@/api/petApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -32,7 +32,11 @@ export default function MyPets() {
   const [breed, setBreed] = useState("");
   const [addReportType, setAddReportType] = useState("REGISTERED");
   const [addFoundLocation, setAddFoundLocation] = useState("");
-  const [addFoundDate, setAddFoundDate] = useState("");
+  const [addFoundDate, setAddFoundDate] = useState(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  });
 
   const [openMenuId, setOpenMenuId] = useState(null);
   const [menuPosition, setMenuPosition] = useState(null); // { bottom, right } for fixed dropdown
@@ -51,14 +55,55 @@ export default function MyPets() {
 
   const router = useRouter();
 
-  /* ---------- FETCH PETS ---------- */
+  /* ---------- FETCH PETS ----------
+     Primary source: /pet/my-pets (backend-owned).
+     Fallback: /pet/all filtered by owner email/phone so newly added REGISTERED pets always show
+     even if /my-pets doesn't return them yet.
+  */
   const fetchPets = async () => {
     try {
-      const res = await getMyPets();
-      setPets(res.data);
-      return res.data;
+      const ownerEmail =
+        (typeof window !== "undefined" && (localStorage.getItem("email") || localStorage.getItem("userEmail"))) || "";
+      const ownerPhone =
+        (typeof window !== "undefined" &&
+          (localStorage.getItem("phone") ||
+            localStorage.getItem("defaultOwnerPhone") ||
+            localStorage.getItem("userMobile"))) ||
+        "";
+
+      const [myRes, allRes] = await Promise.allSettled([getMyPets(), getAllPets()]);
+
+      let myList = [];
+      if (myRes.status === "fulfilled") {
+        const data = myRes.value.data;
+        myList = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
+      }
+
+      let fallbackList = [];
+      if (allRes.status === "fulfilled") {
+        const data = allRes.value.data;
+        const all = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
+        if (ownerEmail || ownerPhone) {
+          fallbackList = all.filter((p) => {
+            const matchesEmail = ownerEmail && p?.ownerEmail === ownerEmail;
+            const matchesPhone = ownerPhone && p?.ownerPhone === ownerPhone;
+            return matchesEmail || matchesPhone;
+          });
+        }
+      }
+
+      const mergedById = {};
+      [...myList, ...fallbackList].forEach((p) => {
+        if (p && p.id != null) {
+          mergedById[p.id] = p;
+        }
+      });
+      const finalList = Object.values(mergedById);
+      setPets(finalList);
+      return finalList;
     } catch (err) {
       console.error("Failed to load pets", err);
+      setPets([]);
       return [];
     } finally {
       setLoading(false);
@@ -133,7 +178,6 @@ export default function MyPets() {
         localStorage.getItem("userMobile") ||
         "";
 
-      const formData = new FormData();
       const petDTO = {
         petName: petName.trim(),
         breed: breed.trim() || null,
@@ -145,16 +189,11 @@ export default function MyPets() {
         petDTO.lastSeenLocation = addFoundLocation.trim() || null;
         petDTO.lastSeenDate = addFoundDate || null;
       }
-      formData.append("petDTO", new Blob([JSON.stringify(petDTO)], { type: "application/json" }));
-      // No photo for quick add; user can add photo in Edit
 
-      const res = await fetch("/api/v1/pet/report", {
-        method: "POST",
-        body: formData,
-      });
-      const result = await res.json().catch(() => ({}));
+      // Use reportPet (api client) so Authorization: Bearer <token> is sent — required for REGISTERED
+      const res = await reportPet(petDTO, null, []);
 
-      if (res.ok) {
+      if (res.status === 200 || res.status === 201) {
         setPetName("");
         setBreed("");
         setAddReportType("REGISTERED");
@@ -163,12 +202,15 @@ export default function MyPets() {
         setShowForm(false);
         fetchPets();
       } else {
-        const msg = result.businessErrorDescription || result.message || result.validationErrors || "Failed to add pet";
+        const result = res.data || {};
+        const msg = result.businessErrorDescription || result.error || result.message || result.validationErrors || "Failed to add pet";
         setAddError(typeof msg === "string" ? msg : JSON.stringify(msg));
       }
     } catch (err) {
       console.error("Failed to add pet", err);
-      setAddError("Failed to add pet. Please try again.");
+      const data = err.response?.data;
+      const msg = data?.businessErrorDescription || data?.error || data?.message || data?.validationErrors;
+      setAddError(typeof msg === "string" ? msg : msg ? JSON.stringify(msg) : "Failed to add pet. Please try again.");
     } finally {
       setAdding(false);
     }
@@ -422,6 +464,7 @@ export default function MyPets() {
               const sightings = sightingsByPetId[pet.id] || [];
               const hasSightings = pet.reportType === "LOST" && sightings.length > 0;
               const isLost = pet.reportType === "LOST";
+              const isRegistered = (pet.reportType || "").toUpperCase() === "REGISTERED";
 
               return (
                 <div key={pet.id} className="w-full max-w-[180px] sm:max-w-[200px] flex flex-col items-center gap-3">
@@ -458,15 +501,17 @@ export default function MyPets() {
                           {isComplete ? "✓ Complete" : `${missing.length} to go`}
                         </span>
                       </div>
-                      {/* Status badge: pill with left accent */}
+                      {/* Status badge: Lost / Found / Registered */}
                       <span
                         className={`absolute top-3 left-3 inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-lg ${
                           isLost
                             ? "bg-amber-500/95 text-white border-l-2 border-amber-300"
-                            : "bg-emerald-500/95 text-white border-l-2 border-emerald-300"
+                            : isRegistered
+                              ? "bg-sky-500/95 text-white border-l-2 border-sky-300"
+                              : "bg-emerald-500/95 text-white border-l-2 border-emerald-300"
                         }`}
                       >
-                        {isLost ? "Lost" : "Found"}
+                        {isLost ? "Lost" : isRegistered ? "Registered" : "Found"}
                       </span>
                     </div>
                   </button>
