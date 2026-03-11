@@ -62,8 +62,10 @@ export default function ScanQRPage() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: 260 },
         async (decodedText) => {
-          // INVALID QR
-          if (!VALID_QR_REGEX.test(decodedText)) {
+          // Try to extract /pet/{id}/scan from any URL/text
+          const match = decodedText.match(/\/pet\/(\d+)\/scan/);
+
+          if (!match) {
             vibrate([60, 40, 60]);
             beep();
             setError('Invalid QR code. Please scan a TailsGuide pet QR.');
@@ -72,11 +74,19 @@ export default function ScanQRPage() {
             return;
           }
 
-          // SUCCESS
+          const petId = match[1];
+
+          // SUCCESS – always redirect to current origin so localhost/dev links in QR still work
           vibrate([120]);
           beep();
           await safeStop();
-          window.location.href = decodedText;
+
+          const target =
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/pet/${petId}/scan`
+              : `/pet/${petId}/scan`;
+
+          window.location.href = target;
         }
       );
 

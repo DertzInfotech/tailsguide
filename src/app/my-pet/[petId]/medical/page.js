@@ -134,14 +134,21 @@ export default function PetMedicalPage() {
   };
 
   const handleViewDocument = async (recordId) => {
+    // Open window immediately on user click to avoid popup blockers (especially on mobile)
+    const viewWindow = typeof window !== "undefined" ? window.open("", "_blank") : null;
+    if (!viewWindow) {
+      setToast("Please allow popups to view the document.");
+      return;
+    }
     try {
       const res = await getPetMedicalDocument(recordId);
       const blob = res.data;
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      viewWindow.location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
       console.error("Failed to load document", e);
+      viewWindow.close();
       setToast("Could not open document.");
     }
   };
