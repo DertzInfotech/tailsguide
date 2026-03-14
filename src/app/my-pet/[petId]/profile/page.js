@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getMyPets, getPetMedicalRecords, getPetMedicalDocument } from "@/api/petApi";
+import { getPetById, getMyPets, getAllPets, getPetMedicalRecords, getPetMedicalDocument } from "@/api/petApi";
 
 /** Same completeness check as My Pets page */
 function getMissingProfileFields(pet) {
@@ -82,16 +82,43 @@ export default function PetProfilePage() {
     let cancelled = false;
     const run = async () => {
       try {
-        const res = await getMyPets();
+        const res = await getPetById(petId);
         if (cancelled) return;
-        const found = (res.data || []).find((p) => String(p.id) === String(petId));
-        if (!found) {
-          router.replace("/my-pet");
+        const data = res?.data;
+        if (data) {
+          setPet(data);
           return;
         }
-        setPet(found);
       } catch {
-        if (!cancelled) router.replace("/my-pet");
+        // Fallback: pet might be in my-pets or in /pet/all (e.g. REGISTERED only there)
+        if (cancelled) return;
+        let found = null;
+        try {
+          const myRes = await getMyPets();
+          const list = myRes?.data ?? [];
+          found = list.find((p) => String(p.id) === String(petId)) ?? null;
+        } catch {
+          // ignore
+        }
+        if (!found) {
+          try {
+            const allRes = await getAllPets();
+            const raw = allRes?.data?.content ?? allRes?.data ?? [];
+            const all = Array.isArray(raw) ? raw : [];
+            const emailNorm = (typeof localStorage !== "undefined" ? (localStorage.getItem("email") || localStorage.getItem("userEmail") || "") : "").trim().toLowerCase();
+            const phoneNorm = (typeof localStorage !== "undefined" ? (localStorage.getItem("phone") || localStorage.getItem("defaultOwnerPhone") || localStorage.getItem("userMobile") || "") : "").trim().replace(/\s/g, "");
+            found = all.find((p) => {
+              if (String(p.id) !== String(petId)) return false;
+              const pe = (p?.ownerEmail || "").trim().toLowerCase();
+              const pp = (p?.ownerPhone || "").trim().replace(/\s/g, "");
+              return (emailNorm && pe && pe === emailNorm) || (phoneNorm && pp && pp === phoneNorm);
+            }) ?? null;
+          } catch {
+            // ignore
+          }
+        }
+        if (found) setPet(found);
+        else if (!cancelled) router.replace("/my-pet");
       } finally {
         if (!cancelled) setLoading(false);
       }

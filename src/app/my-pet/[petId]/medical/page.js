@@ -10,6 +10,7 @@ import {
   getPetMedicalDocument,
   deletePetMedicalRecord,
 } from "@/api/petApi";
+import PdfViewer from "@/components/PdfViewer";
 
 const RECORD_TYPES = [
   "Vaccination",
@@ -56,6 +57,13 @@ export default function PetMedicalPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [recordToDelete, setRecordToDelete] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const [viewRecordId, setViewRecordId] = useState(null);
+  const [viewBlobUrl, setViewBlobUrl] = useState(null);
+  const [viewMimeType, setViewMimeType] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
+
+  const [downloadLoading, setDownloadLoading] = useState(false);
 
   const fetchPet = async () => {
     if (!petId) return;
@@ -134,40 +142,164 @@ export default function PetMedicalPage() {
   };
 
   const handleViewDocument = async (recordId) => {
-    // Open window immediately on user click to avoid popup blockers (especially on mobile)
-    const viewWindow = typeof window !== "undefined" ? window.open("", "_blank") : null;
-    if (!viewWindow) {
-      setToast("Please allow popups to view the document.");
-      return;
-    }
+    setViewRecordId(recordId);
+    setViewBlobUrl(null);
+    setViewMimeType(null);
+    setViewLoading(true);
     try {
       const res = await getPetMedicalDocument(recordId);
       const blob = res.data;
-      const url = URL.createObjectURL(blob);
-      viewWindow.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      if (!blob || !(blob instanceof Blob)) {
+        setToast("Invalid document response.");
+        setViewRecordId(null);
+        return;
+      }
+      if (res.status !== 200 && res.status !== 201) {
+        let errMsg = "Could not load document.";
+        if (blob.type === "application/json") {
+          try {
+            const j = JSON.parse(await blob.text());
+            const s = j?.error || j?.message;
+            if (typeof s === "string" && s.length < 200) errMsg = s;
+          } catch { /* use default */ }
+        }
+        setToast(errMsg);
+        setViewRecordId(null);
+        return;
+      }
+      if (blob.size === 0) {
+        setToast("Document is empty.");
+        setViewRecordId(null);
+        return;
+      }
+      if (blob.type === "application/json") {
+        let errMsg = "Could not open document.";
+        try {
+          const j = JSON.parse(await blob.text());
+          const s = j?.error || j?.message;
+          if (typeof s === "string" && s.length < 200) errMsg = s;
+        } catch { /* use default */ }
+        setToast(errMsg);
+        setViewRecordId(null);
+        return;
+      }
+      const buf = await blob.slice(0, 12).arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      const isPdf = bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+      const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+      let type = blob.type && blob.type !== "application/octet-stream" ? blob.type : null;
+      if (!type) {
+        if (isPdf) type = "application/pdf";
+        else if (isJpeg) type = "image/jpeg";
+        else if (isPng) type = "image/png";
+        else type = "application/octet-stream";
+      }
+      const maxPreviewSize = 15 * 1024 * 1024; // 15MB for blob URL preview
+      if (blob.size > maxPreviewSize) {
+        setToast("Document is too large to preview. Please use Download.");
+        setViewRecordId(null);
+        return;
+      }
+      if (!isPdf && !isJpeg && !isPng) {
+        setToast("Unsupported document type. Use Download to save the file.");
+        setViewRecordId(null);
+        return;
+      }
+      const displayBlob = type === blob.type ? blob : new Blob([blob], { type });
+      const url = URL.createObjectURL(displayBlob);
+      setViewBlobUrl(url);
+      setViewMimeType(type);
     } catch (e) {
       console.error("Failed to load document", e);
-      viewWindow.close();
-      setToast("Could not open document.");
+      let msg = "Could not open document.";
+      if (e?.response?.status === 401) msg = "Please sign in again to view documents.";
+      else if (typeof e?.response?.data?.error === "string") msg = e.response.data.error;
+      else if (typeof e?.message === "string" && e.message.length < 150) msg = e.message;
+      setToast(msg);
+      setViewRecordId(null);
+    } finally {
+      setViewLoading(false);
     }
   };
 
+  const closeViewModal = () => {
+    if (viewBlobUrl && viewBlobUrl.startsWith("blob:")) URL.revokeObjectURL(viewBlobUrl);
+    setViewRecordId(null);
+    setViewBlobUrl(null);
+    setViewMimeType(null);
+  };
+
   const handleDownloadDocument = async (recordId) => {
+    setDownloadLoading(true);
+    setToast(null);
     try {
       const res = await getPetMedicalDocument(recordId);
-      const blob = res.data;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `medical-document-${recordId}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const blob = res?.data;
+      if (!blob || !(blob instanceof Blob)) {
+        setToast("Could not download document.");
+        return;
+      }
+      if (blob.size === 0) {
+        setToast("Document is empty.");
+        return;
+      }
+      if (blob.type === "application/json") {
+        setToast("Server returned an error. Sign in again and try Download.");
+        return;
+      }
+      const headerBuf = await blob.slice(0, 12).arrayBuffer();
+      const bytes = new Uint8Array(headerBuf);
+      const isPdf = bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+      const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+      const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      const ext = isPdf ? "pdf" : isJpeg ? "jpg" : isPng ? "png" : "bin";
+      const mimeType = isPdf ? "application/pdf" : isJpeg ? "image/jpeg" : isPng ? "image/png" : blob.type || "application/octet-stream";
+      const filename = `medical-document-${recordId}.${ext}`;
+      const downloadBlob = blob.type === mimeType ? blob : new Blob([blob], { type: mimeType });
+
+      let done = false;
+      try {
+        const fs = await import("file-saver");
+        const saveAs = fs.saveAs || fs.default;
+        if (typeof saveAs === "function") {
+          saveAs(downloadBlob, filename);
+          done = true;
+        }
+      } catch (_) { /* use link fallback */ }
+      if (!done) {
+        try {
+          const url = URL.createObjectURL(downloadBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          a.rel = "noopener";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+          done = true;
+        } catch (linkErr) {
+          console.error("Download link fallback failed", linkErr);
+        }
+      }
+      if (!done) setToast("Download could not be started. Use View and save the image from the preview.");
     } catch (e) {
       console.error("Failed to download document", e);
-      setToast("Could not download document.");
+      let msg = "Could not download document.";
+      if (e?.response?.status === 401) msg = "Please sign in again to download.";
+      else if (e?.response?.status === 404) msg = "Document not found.";
+      else if (e?.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text();
+          const j = JSON.parse(text);
+          const s = j?.error || j?.message;
+          if (typeof s === "string" && s.length < 200) msg = s;
+        } catch { /* keep default */ }
+      } else if (typeof e?.response?.data?.error === "string") msg = e.response.data.error;
+      setToast(msg);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -259,6 +391,7 @@ export default function PetMedicalPage() {
           </div>
         )}
 
+
         {records.length === 0 && !showUpload ? (
           <div className="bg-white/80 backdrop-blur rounded-2xl border border-amber-100 p-8 text-center">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-100 flex items-center justify-center text-3xl mb-4">
@@ -301,9 +434,10 @@ export default function PetMedicalPage() {
                   <button
                     type="button"
                     onClick={() => handleDownloadDocument(rec.id)}
-                    className="px-3 py-2 rounded-lg border border-amber-200 text-amber-800 text-sm font-medium hover:bg-amber-50 transition"
+                    disabled={downloadLoading}
+                    className="px-3 py-2 rounded-lg border border-amber-200 text-amber-800 text-sm font-medium hover:bg-amber-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Download
+                    {downloadLoading ? "Preparing…" : "Download"}
                   </button>
                   <button
                     type="button"
@@ -317,6 +451,55 @@ export default function PetMedicalPage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* View document popup */}
+        {viewRecordId !== null && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={closeViewModal}
+            role="dialog"
+            aria-modal="true"
+            aria-label="View medical document"
+          >
+            <div
+              className="bg-white w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between shrink-0 px-4 py-3 border-b border-amber-100">
+                <h2 className="text-lg font-semibold text-gray-800">Medical document</h2>
+                <button
+                  type="button"
+                  onClick={closeViewModal}
+                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition"
+                  aria-label="Close"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 p-4 overflow-auto bg-gray-100 flex flex-col">
+                {viewLoading && (
+                  <div className="flex items-center justify-center py-16 text-gray-500">Loading…</div>
+                )}
+                {!viewLoading && viewBlobUrl && (
+                  viewMimeType && viewMimeType.startsWith("image/")
+                    ? (
+                        <img
+                          key={viewBlobUrl}
+                          src={viewBlobUrl}
+                          alt="Medical document"
+                          className="max-w-full h-auto mx-auto rounded-lg shadow"
+                        />
+                      )
+                    : (
+                        <div className="min-h-[70vh] overflow-auto">
+                          <PdfViewer key={viewBlobUrl} url={viewBlobUrl} className="flex flex-col items-center" />
+                        </div>
+                      )
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Delete confirmation popup */}
