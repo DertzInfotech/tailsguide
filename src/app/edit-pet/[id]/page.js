@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getMyPets, deletePetMedia } from "@/api/petApi";
+import { getPetById, getMyPets, getAllPets, deletePetMedia } from "@/api/petApi";
 import { submitReport } from "@/lib/api-client";
 import { useObjectDetection, MIN_CONFIDENCE_FOR_AUTOFILL } from "@/utils/useObjectDetection";
 
@@ -32,6 +32,7 @@ export default function EditPetProfile() {
   const { detectAndClassify, modelLoaded, isLoading: isAiLoading, error: aiError } = useObjectDetection();
   const [primaryPhotoIndex, setPrimaryPhotoIndex] = useState(null); // number | null (within newPhotos)
   const [primaryPhotoFile, setPrimaryPhotoFile] = useState(null); // File | null
+  const [primaryPhotoObjectUrl, setPrimaryPhotoObjectUrl] = useState(null); // blob URL for profile circle
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState(null);
 
@@ -79,53 +80,91 @@ export default function EditPetProfile() {
   /* ---------- LOAD PET ---------- */
   useEffect(() => {
     const fetchPet = async () => {
+      let found = null;
       try {
-        const res = await getMyPets();
-        const found = res.data.find(p => String(p.id) === String(id));
-
-        if (!found) {
-          router.push("/my-pet");
-          return;
+        const res = await getPetById(id);
+        found = res?.data ?? null;
+      } catch {
+        try {
+          const myRes = await getMyPets();
+          const list = Array.isArray(myRes?.data) ? myRes.data : [];
+          found = list.find((p) => String(p.id) === String(id)) ?? null;
+        } catch {
+          // ignore
         }
-
-        setPet(found);
-
-        setPetName(found.petName || "");
-        setPetType(found.petType || "");
-        setBreed(found.breed || "");
-        setAge(found.age || "");
-        setGender(found.gender || "");
-        setSize(found.size || "");
-        setPrimaryColor(found.primaryColor || "");
-        setDistinctiveFeatures(found.distinctiveFeatures || "");
-
-        setReportType(found.reportType || "LOST");
-        setLastSeenLocation(found.lastSeenLocation || "");
-        setLastSeenDate(found.lastSeenDate || "");
-        setLastSeenTime(found.lastSeenTime || "");
-        setCircumstances(found.circumstances || "");
-
-        setOwnerName(found.ownerName || "");
-        setOwnerPhone(found.ownerPhone || "");
-        setOwnerEmail(found.ownerEmail || "");
-        setEmergencyContact(found.emergencyContact || "");
-
-        setMicrochipId(found.microchipId || "");
-        setVeterinarian(found.veterinarian || "");
-        setMedicalConditions(found.medicalConditions || "");
-        setSpecialInstructions(found.specialInstructions || "");
-
-        setExistingMedia(Array.isArray(found.media) ? found.media : []);
-      } catch (err) {
-        console.error(err);
-        setToast({ type: "error", text: "Failed to load pet details" });
-      } finally {
-        setLoading(false);
+        if (!found) {
+          try {
+            const allRes = await getAllPets();
+            const raw = allRes?.data?.content ?? allRes?.data ?? [];
+            const all = Array.isArray(raw) ? raw : [];
+            const emailNorm = (typeof localStorage !== "undefined" ? (localStorage.getItem("email") || localStorage.getItem("userEmail") || "") : "").trim().toLowerCase();
+            const phoneNorm = (typeof localStorage !== "undefined" ? (localStorage.getItem("phone") || localStorage.getItem("defaultOwnerPhone") || localStorage.getItem("userMobile") || "") : "").trim().replace(/\s/g, "");
+            found = all.find((p) => {
+              if (String(p.id) !== String(id)) return false;
+              const pe = (p?.ownerEmail || "").trim().toLowerCase();
+              const pp = (p?.ownerPhone || "").trim().replace(/\s/g, "");
+              return (emailNorm && pe && pe === emailNorm) || (phoneNorm && pp && pp === phoneNorm);
+            }) ?? null;
+          } catch (err) {
+            console.error(err);
+            setToast({ type: "error", text: "Failed to load pet details" });
+          }
+        }
       }
+      if (!found) {
+        router.push("/my-pet");
+        setLoading(false);
+        return;
+      }
+      setPet(found);
+      setPetName(found.petName || "");
+      setPetType(found.petType || "");
+      setBreed(found.breed || "");
+      setAge(found.age || "");
+      setGender(found.gender || "");
+      setSize(found.size || "");
+      setPrimaryColor(found.primaryColor || "");
+      setDistinctiveFeatures(found.distinctiveFeatures || "");
+
+      setReportType(found.reportType || "LOST");
+      setLastSeenLocation(found.lastSeenLocation || "");
+      setLastSeenDate(found.lastSeenDate || "");
+      setLastSeenTime(found.lastSeenTime || "");
+      setCircumstances(found.circumstances || "");
+
+      setOwnerName(found.ownerName || "");
+      setOwnerPhone(found.ownerPhone || "");
+      setOwnerEmail(found.ownerEmail || "");
+      setEmergencyContact(found.emergencyContact || "");
+
+      setMicrochipId(found.microchipId || "");
+      setVeterinarian(found.veterinarian || "");
+      setMedicalConditions(found.medicalConditions || "");
+      setSpecialInstructions(found.specialInstructions || "");
+
+      setExistingMedia(Array.isArray(found.media) ? found.media : []);
+      setLoading(false);
     };
 
     fetchPet();
   }, [id, router]);
+
+  // Keep profile circle in sync with primary photo (blob URL for new file)
+  useEffect(() => {
+    if (!primaryPhotoFile) {
+      setPrimaryPhotoObjectUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    const url = URL.createObjectURL(primaryPhotoFile);
+    setPrimaryPhotoObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    return () => URL.revokeObjectURL(url);
+  }, [primaryPhotoFile]);
 
   const handleNextStep = () => {
     if (currentStep < 3) setCurrentStep((s) => s + 1);
@@ -406,7 +445,7 @@ export default function EditPetProfile() {
               <p className="block text-sm font-medium text-gray-700 mb-2">Pet Photo</p>
               <div className="flex items-start gap-6 flex-wrap">
                 <img
-                  src={pet ? `${pet.thumbnailUrl ? `/api/v1${pet.thumbnailUrl.startsWith("/") ? pet.thumbnailUrl : `/${pet.thumbnailUrl}`}` : getThumbnailUrl(pet.id)}?ts=${pet.updatedAt || Date.now()}` : ""}
+                  src={primaryPhotoObjectUrl || (pet ? `${pet.thumbnailUrl ? `/api/v1${pet.thumbnailUrl.startsWith("/") ? pet.thumbnailUrl : `/${pet.thumbnailUrl}`}` : getThumbnailUrl(pet.id)}?ts=${pet.updatedAt || Date.now()}` : "")}
                   alt=""
                   className="w-24 h-24 rounded-full object-cover border-2 border-gray-200 bg-gray-100"
                 />

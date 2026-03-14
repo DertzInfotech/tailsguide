@@ -84,9 +84,13 @@ export default function MyPets() {
         const data = allRes.value.data;
         const all = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
         if (ownerEmail || ownerPhone) {
+          const emailNorm = ownerEmail?.trim().toLowerCase();
+          const phoneNorm = ownerPhone?.trim().replace(/\s/g, "");
           fallbackList = all.filter((p) => {
-            const matchesEmail = ownerEmail && p?.ownerEmail === ownerEmail;
-            const matchesPhone = ownerPhone && p?.ownerPhone === ownerPhone;
+            const pe = (p?.ownerEmail || "").trim().toLowerCase();
+            const pp = (p?.ownerPhone || "").trim().replace(/\s/g, "");
+            const matchesEmail = emailNorm && pe && pe === emailNorm;
+            const matchesPhone = phoneNorm && pp && pp === phoneNorm;
             return matchesEmail || matchesPhone;
           });
         }
@@ -169,6 +173,13 @@ export default function MyPets() {
     setAddError(null);
     setAdding(true);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("tailsToken") : null;
+      if (!token) {
+        setAddError("Please sign in to add a pet.");
+        setAdding(false);
+        return;
+      }
+
       // Email and phone from profile (updated there); fallback to signup/signin values
       const ownerEmail =
         localStorage.getItem("email") || localStorage.getItem("userEmail") || "";
@@ -203,14 +214,24 @@ export default function MyPets() {
         fetchPets();
       } else {
         const result = res.data || {};
+        const errMsg = result.error || result.message || "";
+        const isUserNotFound = /user not found/i.test(errMsg) || /User not found/i.test(String(result.error));
         const msg = result.businessErrorDescription || result.error || result.message || result.validationErrors || "Failed to add pet";
-        setAddError(typeof msg === "string" ? msg : JSON.stringify(msg));
+        const displayMsg = isUserNotFound
+          ? "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet."
+          : (typeof msg === "string" ? msg : JSON.stringify(msg));
+        setAddError(displayMsg);
       }
     } catch (err) {
       console.error("Failed to add pet", err);
       const data = err.response?.data;
+      const errMsg = data?.error || data?.message || "";
+      const isUserNotFound = /user not found/i.test(String(errMsg));
       const msg = data?.businessErrorDescription || data?.error || data?.message || data?.validationErrors;
-      setAddError(typeof msg === "string" ? msg : msg ? JSON.stringify(msg) : "Failed to add pet. Please try again.");
+      const displayMsg = isUserNotFound
+        ? "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet."
+        : (typeof msg === "string" ? msg : msg ? JSON.stringify(msg) : "Failed to add pet. Please try again.");
+      setAddError(displayMsg);
     } finally {
       setAdding(false);
     }

@@ -17,7 +17,10 @@ export function usePets(page = 0) {
         const json = await res.json();
 
         if (res.ok) {
-          setPets(json.content);
+          const raw = Array.isArray(json.content) ? json.content : [];
+          const seen = new Set();
+          const deduped = raw.filter((p) => p?.id != null && !seen.has(p.id) && seen.add(p.id));
+          setPets(deduped);
           setCurrentPage(json.number + 1);
           setTotalPages(Math.ceil(json.totalElements / 5));
         }

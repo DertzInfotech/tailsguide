@@ -90,7 +90,7 @@ export default function AlertsSection({
   const handleMouseEnter = useCallback(() => setScrollPaused(true), []);
   const handleMouseLeave = useCallback(() => setScrollPaused(false), []);
 
-  const showInfiniteScroll = !loading && pets?.length > 0;
+  const showInfiniteScroll = !loading && pets?.length >= 4;
 
   return (
     <div className="dashboard-section-card p-5 sm:p-5 lg:p-5 relative flex flex-col min-h-0">
@@ -147,19 +147,21 @@ export default function AlertsSection({
                   cardSize="normal"
                 />
               </div>
-              <div aria-hidden="true">
-                <PetList
-                  pets={pets}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  loading={false}
-                  onPageChange={onPageChange}
-                  hidePagination
-                  hideFlyerAndSighting
-                  showFooterText={false}
-                  cardSize="normal"
-                />
-              </div>
+              {pets.length >= 4 && (
+                <div aria-hidden="true">
+                  <PetList
+                    pets={pets}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    loading={false}
+                    onPageChange={onPageChange}
+                    hidePagination
+                    hideFlyerAndSighting
+                    showFooterText={false}
+                    cardSize="normal"
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-full overflow-y-auto alerts-scroll pr-1">

@@ -29,10 +29,18 @@ export default function ForgotPassword() {
         type: "success",
       });
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        err.message ||
-        "Something went wrong. Please try again.";
+      const data = err.response?.data || {};
+      const errText = String(data.error || data.message || err.message || "");
+      const isUserNotFound =
+        /user not found/i.test(errText) ||
+        /user not found with email/i.test(errText) ||
+        /not registered/i.test(errText);
+      const message = isUserNotFound
+        ? "This email is not registered with us. Please sign up or create an account."
+        : data.businessErrorDescription ||
+          data.message ||
+          err.message ||
+          "Something went wrong. Please try again.";
       setNotification({ message, type: "error" });
     } finally {
       setLoading(false);
