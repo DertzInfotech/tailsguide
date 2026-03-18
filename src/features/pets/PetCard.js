@@ -46,10 +46,11 @@ function SightingIcon({ className = "w-4 h-4" }) {
   );
 }
 
-export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, cardSize = "normal" }) {
+export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, showShare = false, cardSize = "normal" }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [shareToast, setShareToast] = useState(null);
 
   const dateLabel = formatDateLabel(pet.lastSeenDate, pet.reportType === "LOST");
   const daysMissing = pet.lastSeenDate
@@ -62,6 +63,40 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
   const isRecentlyFound = !isLost && daysMissing <= 3;
   const isLarge = cardSize === "large";
   const isCompact = cardSize === "compact";
+
+  const shareUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/pet/${pet.id}/scan`
+    : `/pet/${pet.id}/scan`;
+  const shareText = `Help reunite this pet. Details: ${shareUrl}`;
+
+  const handleShare = async () => {
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        await navigator.share({ title: "tailsGuide", text: shareText, url: shareUrl });
+        setShareToast("Shared.");
+        setTimeout(() => setShareToast(null), 2500);
+        return;
+      }
+    } catch {
+      // fall back to copy
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareToast("Link copied.");
+    } catch {
+      setShareToast("Copy failed. Use the browser address bar to copy.");
+    } finally {
+      setTimeout(() => setShareToast(null), 2500);
+    }
+  };
+
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
+    setPreviewBlobUrl(null);
+  };
 
   return (
     <div
@@ -85,7 +120,7 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
       <div className="flex flex-1 min-w-0 gap-3 lg:gap-4">
         {/* Image + badge - extra margin when large so circle isn't clipped */}
         <div className={`relative shrink-0 ${isLarge ? "flex items-center" : ""}`}>
-          <div className={`rounded-full overflow-hidden flex-shrink-0 ${isLarge ? "w-24 h-24" : isCompact ? "w-12 h-12" : "w-16 h-16"}`}>
+          <div className={`rounded-full overflow-hidden shrink-0 ${isLarge ? "w-24 h-24" : isCompact ? "w-12 h-12" : "w-16 h-16"}`}>
             <img
               src={imageUrl}
               alt={pet.petName}
@@ -111,14 +146,14 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-2">
-            <h4 className={`font-semibold text-orange-900 ${isLarge ? "text-lg line-clamp-2 break-words" : isCompact ? "text-sm truncate" : "max-lg:line-clamp-2 max-lg:break-words lg:truncate"}`}>
+            <h4 className={`font-semibold text-orange-900 ${isLarge ? "text-lg line-clamp-2 wrap-break-word" : isCompact ? "text-sm truncate" : "max-lg:line-clamp-2 max-lg:wrap-break-word lg:truncate"}`}>
               {pet.petName || "Unknown"}
             </h4>
             <span className={`text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800 shrink-0 font-medium w-fit ${isLarge ? "max-w-[220px] whitespace-normal text-left" : isCompact ? "max-w-[100px] truncate text-[10px] px-1.5 py-0.5" : "max-w-[140px] truncate"}`} title={dateLabel}>
               {dateLabel}
             </span>
           </div>
-          <p className={`text-orange-800 mt-1 ${isLarge ? "text-sm line-clamp-2 break-words" : isCompact ? "text-xs truncate" : "text-sm max-lg:line-clamp-2 max-lg:break-words lg:truncate"}`}>
+          <p className={`text-orange-800 mt-1 ${isLarge ? "text-sm line-clamp-2 wrap-break-word" : isCompact ? "text-xs truncate" : "text-sm max-lg:line-clamp-2 max-lg:wrap-break-word lg:truncate"}`}>
             📍 {pet.lastSeenLocation}
           </p>
 
@@ -132,6 +167,40 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
 
       {/* Actions: full width below on mobile/tablet so no overlap; same row on desktop */}
       <div className="flex items-center gap-2 sm:gap-3 max-lg:justify-start max-lg:flex-wrap max-lg:w-full lg:justify-end lg:flex-wrap shrink-0">
+        {/* Share (only on Lost & Found Reports surfaces) */}
+        {showShare && (
+          <div className="flex flex-col items-stretch rounded-2xl border border-stone-200 bg-white/70 p-1.5 shadow-sm max-lg:min-w-[120px]">
+            <button
+              type="button"
+              onClick={handleShare}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 max-lg:py-2 rounded-xl text-xs font-semibold bg-stone-900 text-white hover:bg-stone-800 active:scale-[0.98] shadow-sm transition-all duration-200 ease-out whitespace-nowrap"
+              aria-label="Share pet link"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" />
+                <path d="M16 6l-4-4-4 4" />
+                <path d="M12 2v14" />
+              </svg>
+              Share
+            </button>
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 mt-1 px-3 py-1.5 rounded-lg text-[11px] font-medium text-emerald-700 hover:text-emerald-800 hover:bg-white/70 transition-colors duration-200"
+              aria-label="Share on WhatsApp"
+            >
+              <span className="opacity-90">WhatsApp</span>
+              <span aria-hidden>↗</span>
+            </a>
+            {shareToast && (
+              <div className="mt-1 text-[11px] text-stone-600 text-center">
+                {shareToast}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Flyer + Preview: grouped “get flyer” actions */}
         {!hideFlyerAndSighting && isLost && (
           <div className="flex flex-col items-stretch rounded-2xl border border-orange-200/80 bg-linear-to-br from-orange-50/90 to-amber-50/80 p-1.5 shadow-sm max-lg:min-w-[120px]">
@@ -157,13 +226,13 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
         {/* Preview modal - portaled to body so it's above card and doesn't flicker */}
         {!hideFlyerAndSighting && previewOpen && typeof document !== "undefined" && createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-black/20 cursor-pointer"
+            className="fixed inset-0 z-9999 flex items-center justify-center p-2 sm:p-4 bg-black/20 cursor-pointer"
             onClick={(e) => {
               if (e.target !== e.currentTarget) return;
-              setPreviewOpen(false);
-              if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-              setPreviewBlobUrl(null);
+              closePreview();
             }}
+            onKeyDown={(e) => { if (e.key === "Escape") closePreview(); }}
+            tabIndex={-1}
             role="presentation"
           >
             <div
@@ -178,9 +247,7 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
                   type="button"
                   onMouseDown={(e) => e.stopPropagation()}
                   onClick={() => {
-                    setPreviewOpen(false);
-                    if (previewBlobUrl) URL.revokeObjectURL(previewBlobUrl);
-                    setPreviewBlobUrl(null);
+                    closePreview();
                   }}
                   className="min-w-[48px] min-h-[48px] flex items-center justify-center rounded-xl text-stone-500 hover:text-stone-700 hover:bg-stone-100 active:bg-stone-200 transition-colors"
                   aria-label="Close preview"
@@ -208,6 +275,7 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, c
           <Link
             href={`/spotted/${pet.id}`}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-semibold text-white whitespace-nowrap min-w-0
+              max-lg:basis-full max-lg:w-full max-lg:justify-center max-lg:mx-auto max-lg:order-last
               bg-linear-to-b from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700
               shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow
               border border-amber-400/30 transition-all duration-200 ease-out"

@@ -10,6 +10,7 @@ export default function PetList({
   onPageChange,
   hidePagination = false,
   hideFlyerAndSighting = false,
+  showShare = false,
   showFooterText = true,
   cardSize = "normal",
   emptyTitle = "No active alerts right now",
@@ -53,6 +54,7 @@ export default function PetList({
             pet={pet}
             imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
             hideFlyerAndSighting={hideFlyerAndSighting}
+            showShare={showShare}
             cardSize={cardSize}
           />
         ))}

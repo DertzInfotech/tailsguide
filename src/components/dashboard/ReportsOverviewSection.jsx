@@ -44,7 +44,7 @@ export default function ReportsOverviewSection() {
           <div className="dashboard-section-tabs-wrap flex gap-0.5 mt-6 lg:mt-5 w-fit">
             <button
               onClick={() => setActiveTab("LOST")}
-              className={`px-4 py-2.5 rounded-[0.5rem] text-sm transition-all duration-200
+              className={`px-4 py-2.5 rounded-lg text-sm transition-all duration-200
                 ${activeTab === "LOST"
                   ? "dashboard-section-tab-active"
                   : "dashboard-section-tab-inactive"}
@@ -54,7 +54,7 @@ export default function ReportsOverviewSection() {
             </button>
             <button
               onClick={() => setActiveTab("FOUND")}
-              className={`px-4 py-2.5 rounded-[0.5rem] text-sm transition-all duration-200
+              className={`px-4 py-2.5 rounded-lg text-sm transition-all duration-200
                 ${activeTab === "FOUND"
                   ? "dashboard-section-tab-active"
                   : "dashboard-section-tab-inactive"}
@@ -71,6 +71,7 @@ export default function ReportsOverviewSection() {
                 pets={lostPets}
                 loading={loading}
                 hidePagination
+                showShare
               />
             )}
             {activeTab === "FOUND" && (
@@ -78,6 +79,7 @@ export default function ReportsOverviewSection() {
                 pets={foundPets}
                 loading={loading}
                 hidePagination
+                showShare
                 emptyTitle="No found pets reported yet"
                 emptyDescription="When someone reports a found pet, they’ll appear here for owners to see."
               />

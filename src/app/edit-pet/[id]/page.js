@@ -7,6 +7,77 @@ import { submitReport } from "@/lib/api-client";
 import { useObjectDetection, MIN_CONFIDENCE_FOR_AUTOFILL } from "@/utils/useObjectDetection";
 
 const MAX_PHOTOS = 5;
+const DEFAULT_TARGET_PHOTO_KB = 200;
+
+async function compressImageFile(file, { maxBytes = DEFAULT_TARGET_PHOTO_KB * 1024, maxDimension = 960 } = {}) {
+  try {
+    if (!(file instanceof File)) return file;
+    if (!file.type?.startsWith("image/")) return file;
+    if (file.size <= maxBytes) return file;
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("image_decode_failed"));
+      i.src = dataUrl;
+    });
+
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return file;
+
+    const scale = Math.min(1, maxDimension / Math.max(w, h));
+    const outW = Math.max(1, Math.round(w * scale));
+    const outH = Math.max(1, Math.round(h * scale));
+
+    const canvas = document.createElement("canvas");
+    const safeName = (file.name || "photo").replace(/\.[^.]+$/, "");
+
+    const tryEncode = async (type, quality) =>
+      await new Promise((resolve) => {
+        canvas.toBlob((b) => resolve(b || null), type, quality);
+      });
+
+    const candidates = [
+      { type: "image/webp", ext: "webp" },
+      { type: "image/jpeg", ext: "jpg" },
+    ];
+    const qualities = [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28];
+    const scales = [1, 0.9, 0.8, 0.72, 0.64, 0.56];
+
+    for (const s of scales) {
+      const w2 = Math.max(1, Math.round(outW * s));
+      const h2 = Math.max(1, Math.round(outH * s));
+      canvas.width = w2;
+      canvas.height = h2;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) break;
+      ctx.drawImage(img, 0, 0, w2, h2);
+
+      for (const c of candidates) {
+        for (const q of qualities) {
+          const blob = await tryEncode(c.type, q);
+          if (!blob) continue;
+          if (blob.size <= maxBytes) {
+            return new File([blob], `${safeName}.${c.ext}`, { type: c.type });
+          }
+        }
+      }
+    }
+
+    const smallest = (await tryEncode("image/jpeg", 0.28)) || null;
+    return smallest ? new File([smallest], `${safeName}.jpg`, { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
+}
 
 /** Thumbnail URL via app */
 const getThumbnailUrl = (petId) => `/api/v1/pet/${petId}/thumbnail`;
@@ -24,6 +95,7 @@ export default function EditPetProfile() {
 
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [compressing, setCompressing] = useState(false);
   const [pet, setPet] = useState(null);
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -33,6 +105,7 @@ export default function EditPetProfile() {
   const [primaryPhotoIndex, setPrimaryPhotoIndex] = useState(null); // number | null (within newPhotos)
   const [primaryPhotoFile, setPrimaryPhotoFile] = useState(null); // File | null
   const [primaryPhotoObjectUrl, setPrimaryPhotoObjectUrl] = useState(null); // blob URL for profile circle
+  const [primaryExistingMediaId, setPrimaryExistingMediaId] = useState(null); // number | null (within existingMedia)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResult, setAiResult] = useState(null);
 
@@ -149,6 +222,13 @@ export default function EditPetProfile() {
     fetchPet();
   }, [id, router]);
 
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   // Keep profile circle in sync with primary photo (blob URL for new file)
   useEffect(() => {
     if (!primaryPhotoFile) {
@@ -177,26 +257,77 @@ export default function EditPetProfile() {
   /* ---------- PHOTO HANDLERS ---------- */
   const totalPhotoCount = existingMedia.length + newPhotos.length;
 
-  const addPhoto = (file) => {
+  const addPhoto = async (file) => {
     if (!file) return;
     if (totalPhotoCount >= MAX_PHOTOS) return;
 
+    const targetBytes = DEFAULT_TARGET_PHOTO_KB * 1024;
+    setCompressing(true);
+    let finalFile = file;
+    try {
+      finalFile = await compressImageFile(file, { maxBytes: targetBytes, maxDimension: 960 });
+    } catch {
+      // keep original
+    } finally {
+      setCompressing(false);
+    }
+
     const newIndex = newPhotos.length;
-    setNewPhotos((prev) => [...prev, file]);
+    setNewPhotos((prev) => [...prev, finalFile]);
 
     // Ask "Set as primary?" only the very first time (no existing media, first new photo)
     if (existingMedia.length === 0 && newPhotos.length === 0) {
-      setPendingPrimaryFile(file);
+      setPendingPrimaryFile(finalFile);
       setShowPrimaryModal(true);
     }
   };
 
-  const confirmPrimaryChoice = (setAsPrimary) => {
+  const setExistingAsPrimary = async (media) => {
+    try {
+      const url = getMediaImageUrl(media?.url);
+      if (!url) {
+        setToast({ type: "error", text: "Photo not available" });
+        return;
+      }
+      setPrimaryExistingMediaId(media?.id ?? null);
+      setPrimaryPhotoIndex(null);
+      setPrimaryPhotoFile(null); // don't re-upload existing media as a new file
+      // Show existing media immediately in the profile circle
+      setPrimaryPhotoObjectUrl((prev) => {
+        if (prev && typeof prev === "string" && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+        return url;
+      });
+      setAiResult(null);
+      setToast({ type: "success", text: "Primary photo set" });
+    } catch (err) {
+      console.error(err);
+      setToast({ type: "error", text: "Failed to set primary photo" });
+    } finally {
+      setCompressing(false);
+    }
+  };
+
+  const confirmPrimaryChoice = async (setAsPrimary) => {
     if (pendingPrimaryFile) {
       if (setAsPrimary) {
-        setPrimaryPhotoIndex(newPhotos.length - 1);
-        setPrimaryPhotoFile(pendingPrimaryFile);
-        setAiResult(null);
+        try {
+          setCompressing(true);
+          const optimized = await compressImageFile(pendingPrimaryFile, {
+            maxBytes: DEFAULT_TARGET_PHOTO_KB * 1024,
+            maxDimension: 960,
+          });
+          setPrimaryExistingMediaId(null);
+          setPrimaryPhotoIndex(newPhotos.length - 1);
+          setPrimaryPhotoFile(optimized);
+          setAiResult(null);
+        } catch {
+          setPrimaryExistingMediaId(null);
+          setPrimaryPhotoIndex(newPhotos.length - 1);
+          setPrimaryPhotoFile(pendingPrimaryFile);
+          setAiResult(null);
+        } finally {
+          setCompressing(false);
+        }
       }
       setPendingPrimaryFile(null);
     }
@@ -231,14 +362,51 @@ export default function EditPetProfile() {
     });
   };
 
-  const setAsPrimary = (index, file) => {
-    setPrimaryPhotoIndex(index);
-    setPrimaryPhotoFile(file);
-    setAiResult(null);
+  const setAsPrimary = async (index, file) => {
+    setPrimaryExistingMediaId(null);
+    try {
+      setCompressing(true);
+      const optimized = await compressImageFile(file, {
+        maxBytes: DEFAULT_TARGET_PHOTO_KB * 1024,
+        maxDimension: 960,
+      });
+      setNewPhotos((prev) => prev.map((f, i) => (i === index ? optimized : f)));
+      setPrimaryPhotoIndex(index);
+      setPrimaryPhotoFile(optimized);
+      setAiResult(null);
+    } catch {
+      setPrimaryPhotoIndex(index);
+      setPrimaryPhotoFile(file);
+      setAiResult(null);
+    } finally {
+      setCompressing(false);
+    }
   };
 
   const runPrimaryAIDetection = async () => {
-    if (!primaryPhotoFile) {
+    let fileForAi = primaryPhotoFile;
+    // If primary is an existing media item, fetch it on-demand
+    if (!fileForAi && primaryExistingMediaId != null) {
+      const media = existingMedia.find((m) => m.id === primaryExistingMediaId);
+      const url = getMediaImageUrl(media?.url);
+      if (!url) {
+        setToast({ type: "error", text: "Primary photo not available" });
+        return;
+      }
+      try {
+        setCompressing(true);
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const f = new File([blob], "primary.jpg", { type: blob.type || "image/jpeg" });
+        fileForAi = await compressImageFile(f, { maxBytes: DEFAULT_TARGET_PHOTO_KB * 1024, maxDimension: 960 });
+      } catch {
+        setToast({ type: "error", text: "Failed to load primary photo" });
+        return;
+      } finally {
+        setCompressing(false);
+      }
+    }
+    if (!fileForAi) {
       setToast({ type: "error", text: "Please select a primary photo first" });
       return;
     }
@@ -268,7 +436,7 @@ export default function EditPetProfile() {
         img.src = e.target.result;
       };
 
-      reader.readAsDataURL(primaryPhotoFile);
+      reader.readAsDataURL(fileForAi);
     } catch (err) {
       console.error("AI detection error:", err);
       setToast({ type: "error", text: "AI analysis failed" });
@@ -311,7 +479,10 @@ export default function EditPetProfile() {
 
       // Build photos array: primary first, then the rest (same as report page uses "photos")
       const photosToSend = [];
-      if (primaryPhotoFile) photosToSend.push(primaryPhotoFile);
+      // Only upload when primary comes from *new photos*; existing primary should not be re-uploaded.
+      if (primaryPhotoIndex != null && newPhotos[primaryPhotoIndex] instanceof File) {
+        photosToSend.push(newPhotos[primaryPhotoIndex]);
+      }
       newPhotos.forEach((file, idx) => {
         if (idx !== primaryPhotoIndex && file instanceof File) photosToSend.push(file);
       });
@@ -405,7 +576,7 @@ export default function EditPetProfile() {
             <div className="p-6 sm:p-8 md:p-10">
               {/* Header */}
               <div className="flex items-start gap-4 mb-8">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-300/30 shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-300/30 shrink-0">
                   ✏️
                 </div>
                 <div>
@@ -451,10 +622,28 @@ export default function EditPetProfile() {
                 />
                 <div className="flex-1 min-w-[200px]">
                   <p className="text-sm text-gray-500 mb-2">Photo Gallery (max {MAX_PHOTOS})</p>
+                  {compressing && (
+                    <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                      Optimizing image…
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 gap-3">
                     {existingMedia.map((m) => (
                       <div key={m.id} className="relative">
                         <img src={getMediaImageUrl(m.url) || getThumbnailUrl(pet?.id)} alt="" className="w-full h-24 object-cover rounded-lg bg-gray-100" />
+                        {primaryExistingMediaId === m.id ? (
+                          <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                            Primary
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setExistingAsPrimary(m)}
+                            className="absolute bottom-1 left-1 bg-white/90 text-gray-700 text-[10px] px-2 py-0.5 rounded-full border hover:bg-white"
+                          >
+                            Set primary
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => removeExistingMedia(m.id)}
@@ -468,6 +657,9 @@ export default function EditPetProfile() {
                     {newPhotos.map((file, idx) => (
                       <div key={idx} className="relative">
                         <img src={URL.createObjectURL(file)} className="w-full h-24 object-cover rounded-lg" alt="" />
+                        <span className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                          {(file.size / 1024).toFixed(0)}KB
+                        </span>
                         {primaryPhotoIndex === idx ? (
                           <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">
                             Primary

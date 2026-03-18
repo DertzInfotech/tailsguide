@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getMyPets, getAllPets, deletePet, getPetSightings, getPetCollarQr, reportPet } from "@/api/petApi";
+import { getMyPets, getAllPets, getPetById, deletePet, getPetSightings, getPetCollarQr, reportPet } from "@/api/petApi";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -70,6 +70,8 @@ export default function MyPets() {
             localStorage.getItem("defaultOwnerPhone") ||
             localStorage.getItem("userMobile"))) ||
         "";
+      const registeredIds =
+        (typeof window !== "undefined" && JSON.parse(localStorage.getItem("registeredPetIds") || "[]")) || [];
 
       const [myRes, allRes] = await Promise.allSettled([getMyPets(), getAllPets()]);
 
@@ -83,17 +85,17 @@ export default function MyPets() {
       if (allRes.status === "fulfilled") {
         const data = allRes.value.data;
         const all = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
-        if (ownerEmail || ownerPhone) {
-          const emailNorm = ownerEmail?.trim().toLowerCase();
-          const phoneNorm = ownerPhone?.trim().replace(/\s/g, "");
-          fallbackList = all.filter((p) => {
-            const pe = (p?.ownerEmail || "").trim().toLowerCase();
-            const pp = (p?.ownerPhone || "").trim().replace(/\s/g, "");
-            const matchesEmail = emailNorm && pe && pe === emailNorm;
-            const matchesPhone = phoneNorm && pp && pp === phoneNorm;
-            return matchesEmail || matchesPhone;
-          });
-        }
+        const emailNorm = ownerEmail?.trim().toLowerCase();
+        const phoneNorm = ownerPhone?.trim().replace(/\s/g, "");
+        const registeredSet = new Set(registeredIds);
+        fallbackList = all.filter((p) => {
+          const pe = (p?.ownerEmail || "").trim().toLowerCase();
+          const pp = (p?.ownerPhone || "").trim().replace(/\s/g, "");
+          const matchesEmail = emailNorm && pe && pe === emailNorm;
+          const matchesPhone = phoneNorm && pp && pp === phoneNorm;
+          const matchesRegisteredId = p?.id != null && registeredSet.has(p.id);
+          return matchesEmail || matchesPhone || matchesRegisteredId;
+        });
       }
 
       const mergedById = {};
@@ -102,6 +104,22 @@ export default function MyPets() {
           mergedById[p.id] = p;
         }
       });
+      // If any locally remembered REGISTERED pet IDs are still missing, fetch them individually
+      const missingRegisteredIds = registeredIds.filter((id) => mergedById[id] == null);
+      if (missingRegisteredIds.length > 0) {
+        const results = await Promise.allSettled(
+          missingRegisteredIds.map((id) => getPetById(id))
+        );
+        results.forEach((r) => {
+          if (r.status === "fulfilled") {
+            const data = r.value.data;
+            const pet = Array.isArray(data) ? data[0] : data?.data || data;
+            if (pet && pet.id != null) {
+              mergedById[pet.id] = pet;
+            }
+          }
+        });
+      }
       const finalList = Object.values(mergedById);
       setPets(finalList);
       return finalList;
@@ -171,6 +189,23 @@ export default function MyPets() {
       }
     }
     setAddError(null);
+
+    // Email and phone from profile (updated there); fallback to signup/signin values
+    const ownerEmail =
+      (typeof window !== "undefined" && (localStorage.getItem("email") || localStorage.getItem("userEmail"))) || "";
+    const ownerPhoneRaw =
+      (typeof window !== "undefined" &&
+        (localStorage.getItem("phone") ||
+          localStorage.getItem("defaultOwnerPhone") ||
+          localStorage.getItem("userMobile"))) ||
+      "";
+    const ownerPhone = ownerPhoneRaw.trim();
+
+    if (addReportType === "REGISTERED" && !ownerPhone) {
+      setAddError("Mobile Number is mandatory. Please add your phone in My Profile first; we’ll use that for registered pets.");
+      return;
+    }
+
     setAdding(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("tailsToken") : null;
@@ -179,15 +214,6 @@ export default function MyPets() {
         setAdding(false);
         return;
       }
-
-      // Email and phone from profile (updated there); fallback to signup/signin values
-      const ownerEmail =
-        localStorage.getItem("email") || localStorage.getItem("userEmail") || "";
-      const ownerPhone =
-        localStorage.getItem("phone") ||
-        localStorage.getItem("defaultOwnerPhone") ||
-        localStorage.getItem("userMobile") ||
-        "";
 
       const petDTO = {
         petName: petName.trim(),
@@ -205,33 +231,78 @@ export default function MyPets() {
       const res = await reportPet(petDTO, null, []);
 
       if (res.status === 200 || res.status === 201) {
+        const created =
+          (res.data && (res.data.data || res.data.pet || res.data)) || null;
+
+        if (created && created.id != null) {
+          if (addReportType === "REGISTERED" && typeof window !== "undefined") {
+            try {
+              const current = JSON.parse(localStorage.getItem("registeredPetIds") || "[]");
+              if (!current.includes(created.id)) {
+                localStorage.setItem("registeredPetIds", JSON.stringify([...current, created.id]));
+              }
+            } catch {
+              // ignore localStorage errors
+            }
+          }
+          setPets((prev) => {
+            const byId = {};
+            [...prev, created].forEach((p) => {
+              if (p && p.id != null) byId[p.id] = p;
+            });
+            return Object.values(byId);
+          });
+        }
+
         setPetName("");
         setBreed("");
         setAddReportType("REGISTERED");
         setAddFoundLocation("");
         setAddFoundDate("");
         setShowForm(false);
-        fetchPets();
+        // For LOST/FOUND we refresh from server immediately; for REGISTERED we rely on the optimistic add
+        // because some backends don't yet return REGISTERED pets in /pet/my-pets or filtered /pet/all.
+        if (addReportType !== "REGISTERED") {
+          fetchPets();
+        }
       } else {
         const result = res.data || {};
-        const errMsg = result.error || result.message || "";
-        const isUserNotFound = /user not found/i.test(errMsg) || /User not found/i.test(String(result.error));
-        const msg = result.businessErrorDescription || result.error || result.message || result.validationErrors || "Failed to add pet";
-        const displayMsg = isUserNotFound
-          ? "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet."
-          : (typeof msg === "string" ? msg : JSON.stringify(msg));
-        setAddError(displayMsg);
+        const rawMsg =
+          result.businessErrorDescription ||
+          result.error ||
+          result.message ||
+          result.validationErrors ||
+          "Failed to add pet";
+        let msg = typeof rawMsg === "string" ? rawMsg : Array.isArray(rawMsg) ? rawMsg.join(", ") : JSON.stringify(rawMsg);
+        const isUserNotFound = /user not found/i.test(msg);
+        const isMobileMandatory = /mobile number is mandatory/i.test(msg);
+        if (isUserNotFound) {
+          msg = "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet.";
+        } else if (isMobileMandatory) {
+          msg = "Mobile Number is mandatory. Please add your phone in My Profile first; we’ll use that for registered pets.";
+        }
+        setAddError(msg);
       }
     } catch (err) {
       console.error("Failed to add pet", err);
       const data = err.response?.data;
-      const errMsg = data?.error || data?.message || "";
-      const isUserNotFound = /user not found/i.test(String(errMsg));
-      const msg = data?.businessErrorDescription || data?.error || data?.message || data?.validationErrors;
-      const displayMsg = isUserNotFound
-        ? "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet."
-        : (typeof msg === "string" ? msg : msg ? JSON.stringify(msg) : "Failed to add pet. Please try again.");
-      setAddError(displayMsg);
+      const rawMsg = data?.businessErrorDescription || data?.error || data?.message || data?.validationErrors;
+      let msg =
+        typeof rawMsg === "string"
+          ? rawMsg
+          : Array.isArray(rawMsg)
+          ? rawMsg.join(", ")
+          : rawMsg
+          ? JSON.stringify(rawMsg)
+          : "Failed to add pet. Please try again.";
+      const isUserNotFound = /user not found/i.test(msg);
+      const isMobileMandatory = /mobile number is mandatory/i.test(msg);
+      if (isUserNotFound) {
+        msg = "Your account wasn't found on the server. Please sign out and sign in again, then try adding the pet.";
+      } else if (isMobileMandatory) {
+        msg = "Mobile Number is mandatory. Please add your phone in My Profile first; we’ll use that for registered pets.";
+      }
+      setAddError(msg);
     } finally {
       setAdding(false);
     }
