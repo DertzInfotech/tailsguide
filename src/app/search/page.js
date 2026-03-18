@@ -96,6 +96,8 @@ function getPetCoords(pet, index) {
 
 const SEARCH_MODE = 'search';
 const POTENTIAL_MATCH_MODE = 'potential-match';
+const RECENT_SEARCHES_KEY = "tails_recent_searches_v1";
+const SAVED_FILTERS_KEY = "tails_saved_filters_v1";
 
 function normalize(s) {
   if (s == null || typeof s !== 'string') return '';
@@ -111,6 +113,50 @@ function matchesQuery(pet, q) {
   const color = normalize(pet.primaryColor);
   const type = normalize(pet.petType || '');
   return name.includes(k) || breed.includes(k) || location.includes(k) || color.includes(k) || type.includes(k);
+}
+
+function scorePotentialMatch(target, candidate) {
+  if (!target || !candidate) return 0;
+  if (target.id != null && candidate.id === target.id) return 0;
+  const tType = normalize(target.petType || '');
+  const cType = normalize(candidate.petType || '');
+  const tBreed = normalize(target.breed || '');
+  const cBreed = normalize(candidate.breed || '');
+  const tColor = normalize(target.primaryColor || '');
+  const cColor = normalize(candidate.primaryColor || '');
+  const tLoc = normalize(target.lastSeenLocation || '');
+  const cLoc = normalize(candidate.lastSeenLocation || '');
+  const tFeat = normalize(target.distinctiveFeatures || target.distinctiveFeature || '');
+  const cFeat = normalize(candidate.distinctiveFeatures || candidate.distinctiveFeature || '');
+
+  let score = 0;
+  // Prefer opposite status (lost vs found)
+  const tReport = normalize(target.reportType || '');
+  const cReport = normalize(candidate.reportType || '');
+  if (tReport && cReport && tReport !== cReport) score += 2;
+
+  if (tType && cType && tType === cType) score += 3;
+  if (tBreed && cBreed) {
+    if (tBreed === cBreed) score += 4;
+    else if (tBreed.includes(cBreed) || cBreed.includes(tBreed)) score += 2;
+  }
+  if (tColor && cColor) {
+    if (tColor === cColor) score += 3;
+    else if (tColor.includes(cColor) || cColor.includes(tColor)) score += 1;
+  }
+  if (tLoc && cLoc) {
+    if (tLoc === cLoc) score += 3;
+    else if (tLoc.includes(cLoc) || cLoc.includes(tLoc)) score += 1;
+  }
+  if (tFeat && cFeat) {
+    // Keyword overlap
+    const tWords = new Set(tFeat.split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+    const cWords = new Set(cFeat.split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+    let overlap = 0;
+    tWords.forEach((w) => { if (cWords.has(w)) overlap += 1; });
+    score += Math.min(3, overlap);
+  }
+  return score;
 }
 
 export default function SearchPage() {
@@ -132,6 +178,84 @@ export default function SearchPage() {
   const [selectedPetId, setSelectedPetId] = useState('');
   const [matchPets, setMatchPets] = useState([]);
   const [matchesLoading, setMatchesLoading] = useState(false);
+  const [suggestedMatches, setSuggestedMatches] = useState([]);
+  const [userLocation, setUserLocation] = useState(null); // [lat, lng]
+  const [radiusKm, setRadiusKm] = useState(10);
+  const [geoError, setGeoError] = useState(null);
+
+  const [recentSearches, setRecentSearches] = useState([]);
+  const [savedFilters, setSavedFilters] = useState([]);
+
+  // Load recent searches + saved filters
+  useEffect(() => {
+    try {
+      const r = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || "[]");
+      if (Array.isArray(r)) setRecentSearches(r.slice(0, 8));
+    } catch { /* ignore */ }
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || "[]");
+      if (Array.isArray(s)) setSavedFilters(s.slice(0, 8));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist recent searches (debounced)
+  useEffect(() => {
+    if (mode !== SEARCH_MODE) return;
+    if (!searchQuery || searchQuery.trim().length < 3) return;
+    const q = searchQuery.trim();
+    const t = setTimeout(() => {
+      setRecentSearches((prev) => {
+        const next = [q, ...prev.filter((x) => x !== q)].slice(0, 8);
+        try { localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }, 900);
+    return () => clearTimeout(t);
+  }, [mode, searchQuery]);
+
+  const saveCurrentFilters = () => {
+    const preset = {
+      id: `${Date.now()}`,
+      name: "Saved filter",
+      statusFilter,
+      animalFilter,
+      locationFilter,
+      breedFilter,
+      colorFilter,
+    };
+    const labelParts = [
+      statusFilter ? statusFilter : null,
+      animalFilter ? animalFilter : null,
+      locationFilter ? locationFilter : null,
+      breedFilter ? breedFilter : null,
+      colorFilter ? colorFilter : null,
+    ].filter(Boolean);
+    preset.name = labelParts.length ? labelParts.join(" • ") : "All pets";
+
+    setSavedFilters((prev) => {
+      const next = [preset, ...prev].slice(0, 8);
+      try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const applySavedFilter = (p) => {
+    setStatusFilter(p.statusFilter || "");
+    setAnimalFilter(p.animalFilter || "");
+    setLocationFilter(p.locationFilter || "");
+    setBreedFilter(p.breedFilter || "");
+    setColorFilter(p.colorFilter || "");
+  };
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    try { localStorage.removeItem(RECENT_SEARCHES_KEY); } catch {}
+  };
+
+  const clearSavedFilters = () => {
+    setSavedFilters([]);
+    try { localStorage.removeItem(SAVED_FILTERS_KEY); } catch {}
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -158,7 +282,8 @@ export default function SearchPage() {
     setMyLostPetsLoading(true);
     try {
       const res = await getMyPets();
-      const list = Array.isArray(res?.data) ? res.data : [];
+      const data = res?.data;
+      const list = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
       const lost = list.filter((p) => (p.reportType || '').toUpperCase() === 'LOST');
       setMyLostPets(lost);
       if (lost.length) setSelectedPetId((prev) => prev || String(lost[0].id));
@@ -179,14 +304,18 @@ export default function SearchPage() {
   useEffect(() => {
     if (mode !== POTENTIAL_MATCH_MODE || !selectedPetId) {
       setMatchPets([]);
+      setSuggestedMatches([]);
       return;
     }
     let cancelled = false;
     setMatchesLoading(true);
-    getPetMatches(selectedPetId)
+    const petIdNum = Number(selectedPetId);
+    getPetMatches(Number.isFinite(petIdNum) ? petIdNum : selectedPetId)
       .then((res) => {
-        if (!cancelled && Array.isArray(res?.data)) setMatchPets(res.data);
-        else if (!cancelled) setMatchPets([]);
+        if (cancelled) return;
+        const data = res?.data;
+        const list = Array.isArray(data) ? data : data?.content ?? data?.data ?? [];
+        setMatchPets(Array.isArray(list) ? list : []);
       })
       .catch(() => {
         if (!cancelled) setMatchPets([]);
@@ -196,6 +325,30 @@ export default function SearchPage() {
       });
     return () => { cancelled = true; };
   }, [mode, selectedPetId]);
+
+  // Local fallback: suggest matches when backend returns none
+  useEffect(() => {
+    if (mode !== POTENTIAL_MATCH_MODE) return;
+    if (matchesLoading) return;
+    if (!selectedPetId) return;
+    if (matchPets.length > 0) {
+      setSuggestedMatches([]);
+      return;
+    }
+    const target = myLostPets.find((p) => String(p.id) === String(selectedPetId));
+    if (!target || allPets.length === 0) {
+      setSuggestedMatches([]);
+      return;
+    }
+    const scored = allPets
+      .filter((p) => p && p.id != null && String(p.id) !== String(target.id))
+      .map((p) => ({ p, s: scorePotentialMatch(target, p) }))
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 6)
+      .map((x) => x.p);
+    setSuggestedMatches(scored);
+  }, [mode, matchesLoading, selectedPetId, matchPets, myLostPets, allPets]);
 
   const { locations, breeds, colors } = useMemo(() => {
     const locs = new Set();
@@ -232,10 +385,47 @@ export default function SearchPage() {
     });
   }, [allPets, searchQuery, statusFilter, animalFilter, locationFilter, breedFilter, colorFilter]);
 
+  function haversineKm([lat1, lon1], [lat2, lon2]) {
+    const toRad = (x) => (x * Math.PI) / 180;
+    const R = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  const mapPets = useMemo(() => {
+    if (!userLocation) return filteredPets;
+    const r = Number(radiusKm);
+    if (!Number.isFinite(r) || r <= 0) return filteredPets;
+    return filteredPets.filter((p, idx) => {
+      const coords = getPetCoords(p, idx);
+      const d = haversineKm(userLocation, coords);
+      return d <= r;
+    });
+  }, [filteredPets, userLocation, radiusKm]);
+
+  const requestMyLocation = () => {
+    setGeoError(null);
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setGeoError("Location is not available in this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+      },
+      () => setGeoError("Could not access your location. Please allow location permission."),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
     <main className="min-h-screen relative overflow-hidden">
       {/* Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-[#faf8f5] via-[#fef7ed] to-[#f5f0e8]" aria-hidden />
+      <div className="fixed inset-0 bg-linear-to-br from-[#faf8f5] via-[#fef7ed] to-[#f5f0e8]" aria-hidden />
       <div
         className="fixed inset-0 opacity-[0.04]"
         style={{
@@ -343,6 +533,61 @@ export default function SearchPage() {
               </span>
             </div>
 
+            {/* Recent searches + saved filters */}
+            {(recentSearches.length > 0 || savedFilters.length > 0) && (
+              <div className="flex flex-col gap-3">
+                {recentSearches.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-[0.18em] mr-1">
+                      Recent
+                    </span>
+                    {recentSearches.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setSearchQuery(q)}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/80 border border-stone-200 text-stone-700 hover:bg-stone-50"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={clearRecentSearches}
+                      className="ml-auto text-xs font-semibold text-stone-500 hover:text-stone-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+                {savedFilters.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-stone-500 uppercase tracking-[0.18em] mr-1">
+                      Saved
+                    </span>
+                    {savedFilters.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => applySavedFilter(p)}
+                        className="px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100"
+                        title="Apply saved filters"
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={clearSavedFilters}
+                      className="ml-auto text-xs font-semibold text-stone-500 hover:text-stone-700"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Filters row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
               <select
@@ -413,6 +658,14 @@ export default function SearchPage() {
               >
                 Clear filters
               </button>
+
+              <button
+                type="button"
+                onClick={saveCurrentFilters}
+                className="w-full px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-sm font-semibold transition"
+              >
+                Save filters
+              </button>
             </div>
           </div>
         </div>
@@ -479,6 +732,30 @@ export default function SearchPage() {
                   <p className="text-stone-500 max-w-sm mx-auto mt-2">
                     We couldn’t find pets that closely match. Check back later or broaden your pet’s details.
                   </p>
+                  {suggestedMatches.length > 0 && (
+                    <div className="mt-10 text-left">
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <h4 className="text-sm font-bold tracking-[0.18em] uppercase text-amber-700">
+                          Suggested matches (local)
+                        </h4>
+                        <span className="text-xs text-stone-500">
+                          Based on breed/color/location/features
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
+                        {suggestedMatches.map((pet) => (
+                          <PetCard
+                            key={pet.id}
+                            pet={pet}
+                            imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
+                            hideFlyerAndSighting={false}
+                            showShare
+                            cardSize="large"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6 sm:gap-8 max-w-5xl mx-auto">
@@ -488,6 +765,7 @@ export default function SearchPage() {
                       pet={pet}
                       imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
                       hideFlyerAndSighting={false}
+                      showShare
                       cardSize="large"
                     />
                   ))}
@@ -522,6 +800,7 @@ export default function SearchPage() {
                     pet={pet}
                     imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
                     hideFlyerAndSighting={false}
+                    showShare
                     cardSize="large"
                   />
                 ))}
@@ -533,9 +812,45 @@ export default function SearchPage() {
         {/* Map view: Leaflet map with pet location markers (Search mode only) */}
         {mode === SEARCH_MODE && activeView === 'map' && (
           <div className="rounded-2xl sm:rounded-3xl bg-white/90 backdrop-blur-sm shadow-xl border border-amber-100/70 overflow-hidden">
+            <div className="px-4 sm:px-6 py-3 border-b border-amber-100/70 bg-white/70 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={requestMyLocation}
+                  className="px-4 py-2 rounded-full text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600"
+                >
+                  Use my location
+                </button>
+                <div className="flex items-center gap-2 text-xs text-stone-600">
+                  <span className="font-semibold">Radius</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={50}
+                    value={radiusKm}
+                    onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  />
+                  <span className="tabular-nums">{radiusKm} km</span>
+                  {userLocation && (
+                    <button
+                      type="button"
+                      onClick={() => setUserLocation(null)}
+                      className="ml-1 text-xs font-semibold text-stone-500 hover:text-stone-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-stone-500">
+                Showing {mapPets.length} of {filteredPets.length}
+              </div>
+              {geoError && <div className="text-xs text-rose-600">{geoError}</div>}
+            </div>
             <div className="h-[480px] sm:h-[520px] w-full">
               <MapContainer
-                center={DEFAULT_CENTER}
+                key={userLocation ? "user" : "default"}
+                center={userLocation || DEFAULT_CENTER}
                 zoom={DEFAULT_ZOOM}
                 style={{ height: '100%', width: '100%' }}
                 scrollWheelZoom
@@ -544,7 +859,7 @@ export default function SearchPage() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                {filteredPets.map((pet, index) => {
+                {mapPets.map((pet, index) => {
                   const coords = getPetCoords(pet, index);
                   return <PetMapMarker key={pet.id} pet={pet} coords={coords} />;
                 })}

@@ -8,6 +8,103 @@ import Notification from "@/shared/Notification";
 import { submitReport } from "@/lib/api-client";
 
 const MAX_PHOTOS = 5;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // UI hard limit per photo (safety)
+const DEFAULT_TARGET_PHOTO_BYTES = 200 * 1024; // default target; user can lower using UI tool
+const DRAFT_KEY = "tails_report_draft_v1";
+
+async function compressImageFile(file, { maxBytes = DEFAULT_TARGET_PHOTO_BYTES, maxDimension = 960 } = {}) {
+  try {
+    if (!(file instanceof File)) return file;
+    if (!file.type?.startsWith("image/")) return file;
+
+    // Already small enough
+    if (file.size <= maxBytes) return file;
+
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read_failed"));
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.readAsDataURL(file);
+    });
+
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("image_decode_failed"));
+      i.src = dataUrl;
+    });
+
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    if (!w || !h) return file;
+
+    const scale = Math.min(1, maxDimension / Math.max(w, h));
+    const outW = Math.max(1, Math.round(w * scale));
+    const outH = Math.max(1, Math.round(h * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, outW, outH);
+
+    const tryEncode = async (type, quality) =>
+      await new Promise((resolve) => {
+        canvas.toBlob(
+          (b) => resolve(b || null),
+          type,
+          quality
+        );
+      });
+
+    const safeName = (file.name || "photo").replace(/\.[^.]+$/, "");
+
+    // Prefer WebP when available, fall back to JPEG.
+    // We keep trying lower quality; if still too large, we downscale further and retry.
+    const candidates = [
+      { type: "image/webp", ext: "webp" },
+      { type: "image/jpeg", ext: "jpg" },
+    ];
+    const qualities = [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28];
+    const scales = [1, 0.9, 0.8, 0.72, 0.64, 0.56];
+
+    for (const scale2 of scales) {
+      if (scale2 !== 1) {
+        const w2 = Math.max(1, Math.round(outW * scale2));
+        const h2 = Math.max(1, Math.round(outH * scale2));
+        canvas.width = w2;
+        canvas.height = h2;
+        const ctx2 = canvas.getContext("2d");
+        if (!ctx2) break;
+        ctx2.drawImage(img, 0, 0, w2, h2);
+      }
+
+      for (const c of candidates) {
+        for (const q of qualities) {
+          const blob = await tryEncode(c.type, q);
+          if (!blob) continue;
+          if (blob.size <= maxBytes) {
+            return new File([blob], `${safeName}.${c.ext}`, { type: c.type });
+          }
+        }
+      }
+    }
+
+    // Return smallest attempt we have (likely jpeg at lowest quality)
+    const smallest = (await tryEncode("image/jpeg", 0.28)) || null;
+    return smallest ? new File([smallest], `${safeName}.jpg`, { type: "image/jpeg" }) : file;
+  } catch {
+    return file;
+  }
+}
+
+async function ensureOptimizedPhoto(file, maxBytes) {
+  if (!(file instanceof File)) return file;
+  // Always attempt to optimize to backend-friendly size
+  const optimized = await compressImageFile(file, { maxBytes, maxDimension: 960 });
+  return optimized;
+}
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('lost');
@@ -22,7 +119,12 @@ export default function ReportPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { detectAndClassify, modelLoaded, isLoading, error } = useObjectDetection();
   const [notification, setNotification] = useState(null);
+  const [photoUploadError, setPhotoUploadError] = useState(null);
+  const [photoUploadInfo, setPhotoUploadInfo] = useState(null);
+  const [compressTargetKb, setCompressTargetKb] = useState(200);
+  const [compressing, setCompressing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const [petName, setPetName] = useState('');
   const [petType, setPetType] = useState(lostPetDetection?.petType)
@@ -71,6 +173,144 @@ export default function ReportPage() {
     if (!foundDate) setFoundDate(today);
   }, []);
 
+  // Restore draft on first mount
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== "object") return;
+
+      // Only restore text fields (photos can't be restored)
+      if (d.reportType) setReportType(d.reportType);
+      if (Number.isFinite(d.currentStep)) setCurrentStep(d.currentStep);
+
+      setPetName(d.petName ?? "");
+      setPetType(d.petType ?? "");
+      setBreed(d.breed ?? "");
+      setAge(d.age ?? "");
+      setGender(d.gender ?? "");
+      setSize(d.size ?? "");
+      setPrimaryColor(d.primaryColor ?? "");
+      setDistinctiveFeature(d.distinctiveFeature ?? "");
+      setLastLocation(d.lastLocation ?? "");
+      setLastSeenDate(d.lastSeenDate ?? "");
+      setLastSeenTime(d.lastSeenTime ?? "");
+      setCircumstances(d.circumstances ?? "");
+      setContactName(d.contactName ?? "");
+      setContactNo(d.contactNo ?? "");
+      setContactEmail(d.contactEmail ?? "");
+      setEmergencyNo(d.emergencyNo ?? "");
+      setIsSMSChecked(d.isSMSChecked ?? true);
+      setIsEmailChecked(d.isEmailChecked ?? true);
+      setIsSocialChecked(d.isSocialChecked ?? true);
+      setIsWPChecked(d.isWPChecked ?? true);
+      setMicrochipId(d.microchipID ?? "");
+      setVeterinarian(d.veterinarian ?? "");
+      setMedicalCondition(d.medicalCondition ?? "");
+      setSpecialInstructions(d.specialInstructions ?? "");
+
+      setFoundLocation(d.foundLocation ?? "");
+      setFoundDate(d.foundDate ?? "");
+      setPetCondition(d.petCondition ?? "");
+      setPetDescription(d.petDescription ?? "");
+      setFoundersName(d.foundersName ?? "");
+      setFoundersPhoneNo(d.foundersPhoneNO ?? "");
+      setFoundersEmail(d.foundersEmail ?? "");
+      setCareArrangement(d.careArrangement ?? "");
+
+      setDraftRestored(true);
+      setTimeout(() => setDraftRestored(false), 6000);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Autosave draft (debounced)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const t = setTimeout(() => {
+      try {
+        const draft = {
+          reportType,
+          currentStep,
+          petName,
+          petType,
+          breed,
+          age,
+          gender,
+          size,
+          primaryColor,
+          distinctiveFeature,
+          lastLocation,
+          lastSeenDate,
+          lastSeenTime,
+          circumstances,
+          contactName,
+          contactNo,
+          contactEmail,
+          emergencyNo,
+          isSMSChecked,
+          isEmailChecked,
+          isSocialChecked,
+          isWPChecked,
+          microchipID,
+          veterinarian,
+          medicalCondition,
+          specialInstructions,
+          foundLocation,
+          foundDate,
+          petCondition,
+          petDescription,
+          foundersName,
+          foundersPhoneNO,
+          foundersEmail,
+          careArrangement,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch {
+        // ignore
+      }
+    }, 650);
+    return () => clearTimeout(t);
+  }, [
+    reportType,
+    currentStep,
+    petName,
+    petType,
+    breed,
+    age,
+    gender,
+    size,
+    primaryColor,
+    distinctiveFeature,
+    lastLocation,
+    lastSeenDate,
+    lastSeenTime,
+    circumstances,
+    contactName,
+    contactNo,
+    contactEmail,
+    emergencyNo,
+    isSMSChecked,
+    isEmailChecked,
+    isSocialChecked,
+    isWPChecked,
+    microchipID,
+    veterinarian,
+    medicalCondition,
+    specialInstructions,
+    foundLocation,
+    foundDate,
+    petCondition,
+    petDescription,
+    foundersName,
+    foundersPhoneNO,
+    foundersEmail,
+    careArrangement,
+  ]);
+
   const handleTypeChange = (type) => {
     setReportType(type);
     setCurrentStep(0);
@@ -94,7 +334,48 @@ export default function ReportPage() {
       showNotification('Please add at least one pet photo.', 'error');
       return;
     }
+    setPhotoUploadError(null);
     setIsSubmitting(true);
+
+    // Final safety: optimize all selected photos right before submit.
+    // IMPORTANT: use the optimized arrays immediately (setState is async).
+    const targetBytes = Math.max(50, Number(compressTargetKb) || 200) * 1024;
+    let submitLostPhotos = lostPetPhotos;
+    let submitFoundPhotos = foundPetPhotos;
+    try {
+      showNotification("Optimizing photos…", "info");
+      if (reportType === "lost" && lostPetPhotos.length > 0) {
+        submitLostPhotos = await Promise.all(lostPetPhotos.map((f) => ensureOptimizedPhoto(f, targetBytes)));
+        setLostPetPhotos(submitLostPhotos);
+      }
+      if (reportType === "found" && foundPetPhotos.length > 0) {
+        submitFoundPhotos = await Promise.all(foundPetPhotos.map((f) => ensureOptimizedPhoto(f, targetBytes)));
+        setFoundPetPhotos(submitFoundPhotos);
+      }
+    } catch {
+      // ignore optimization failures; server-side will validate
+    }
+
+    const tooLarge = (f) => f instanceof File && f.size > targetBytes;
+    if (reportType === "lost" && submitLostPhotos.some(tooLarge)) {
+      const msg = `One or more photos are still too large after compression. Try lowering the target (currently ${Math.round(targetBytes / 1024)}KB).`;
+      setPhotoUploadError(msg);
+      showNotification(msg, "error");
+      setIsSubmitting(false);
+      return;
+    }
+    if (reportType === "found" && submitFoundPhotos.some(tooLarge)) {
+      const msg = `One or more photos are still too large after compression. Try lowering the target (currently ${Math.round(targetBytes / 1024)}KB).`;
+      setPhotoUploadError(msg);
+      showNotification(msg, "error");
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Backend appears to have a strict request size limit. To ensure reports submit reliably,
+    // we only upload the primary photo (users can add more later once server limit is raised).
+    setPhotoUploadInfo("To fit server upload limits, only the primary photo will be uploaded for now.");
+
     const formdata = new FormData();
     const lostPetJSON = {
       petName: petName,
@@ -142,24 +423,14 @@ export default function ReportPage() {
 
     if (reportType === 'lost') {
       formdata.append('petDTO', new Blob([JSON.stringify(lostPetJSON)], { type: 'application/json' }));
-      const lostPrimary = lostPetPhotos[lostPrimaryPhotoIndex];
+      const lostPrimary = submitLostPhotos[lostPrimaryPhotoIndex];
       if (lostPrimary) formdata.append('photos', lostPrimary, lostPrimary.name || 'photo.jpg');
-      lostPetPhotos.forEach((file, idx) => {
-        if (idx !== lostPrimaryPhotoIndex && file instanceof File) {
-          formdata.append('photos', file, file.name || 'photo.jpg');
-        }
-      });
     }
 
     if (reportType === 'found') {
       formdata.append('petDTO', new Blob([JSON.stringify(foundPetJSON)], { type: 'application/json' }));
-      const foundPrimary = foundPetPhotos[foundPrimaryPhotoIndex];
+      const foundPrimary = submitFoundPhotos[foundPrimaryPhotoIndex];
       if (foundPrimary) formdata.append('photos', foundPrimary, foundPrimary.name || 'photo.jpg');
-      foundPetPhotos.forEach((file, idx) => {
-        if (idx !== foundPrimaryPhotoIndex && file instanceof File) {
-          formdata.append('photos', file, file.name || 'photo.jpg');
-        }
-      });
     }
 
     const requestOptions = {
@@ -175,11 +446,24 @@ export default function ReportPage() {
       if (result.response.ok) {
         console.log("report submitted")
         showNotification(`${reportType === 'lost' ? 'Lost' : 'Found'} pet report submitted successfully!`, 'success');
+        try { localStorage.removeItem(DRAFT_KEY); } catch {}
         setTimeout(() => {
           router.push('/');
         }, 2000)
       } else {
-        showNotification(result.result.validationErrors, 'error');
+        const ve = result?.result?.validationErrors ?? result?.result?.error ?? result?.result?.message;
+        const msg =
+          typeof ve === "string"
+            ? ve
+            : Array.isArray(ve)
+            ? ve.join(", ")
+            : ve
+            ? JSON.stringify(ve)
+            : "Could not submit report. Please check your details and try again.";
+        if (/max|maximum|size|mb|payload|too large|upload size exceeded/i.test(msg)) {
+          setPhotoUploadError(msg);
+        }
+        showNotification(msg, 'error');
       }
       console.log(formdata);
     } catch (error) {
@@ -239,9 +523,20 @@ export default function ReportPage() {
   };
 
   /* Lost: add / remove / set primary */
-  const addLostPhoto = (file) => {
+  const addLostPhoto = async (file) => {
     if (!file || lostPetPhotos.length >= MAX_PHOTOS) return;
-    setLostPetPhotos((prev) => [...prev, file]);
+    let finalFile = file;
+    showNotification("Optimizing image…", "info");
+    const targetBytes = Math.max(50, Number(compressTargetKb) || 200) * 1024;
+    finalFile = await ensureOptimizedPhoto(file, targetBytes);
+    if (finalFile.size > MAX_PHOTO_BYTES) {
+      setPhotoUploadError(`Image is too large even after optimization. Please choose a smaller photo.`);
+      showNotification("Image is too large. Please choose a smaller photo.", "error");
+      return;
+    }
+    setPhotoUploadError(null);
+    setPhotoUploadInfo(`Optimized to ${(finalFile.size / 1024).toFixed(0)}KB.`);
+    setLostPetPhotos((prev) => [...prev, finalFile]);
     if (lostPetPhotos.length === 0) setLostPrimaryPhotoIndex(0);
     setLostPetDetection(null);
   };
@@ -260,11 +555,46 @@ export default function ReportPage() {
   };
 
   /* Found: add / remove / set primary */
-  const addFoundPhoto = (file) => {
+  const addFoundPhoto = async (file) => {
     if (!file || foundPetPhotos.length >= MAX_PHOTOS) return;
-    setFoundPetPhotos((prev) => [...prev, file]);
+    let finalFile = file;
+    showNotification("Optimizing image…", "info");
+    const targetBytes = Math.max(50, Number(compressTargetKb) || 200) * 1024;
+    finalFile = await ensureOptimizedPhoto(file, targetBytes);
+    if (finalFile.size > MAX_PHOTO_BYTES) {
+      setPhotoUploadError(`Image is too large even after optimization. Please choose a smaller photo.`);
+      showNotification("Image is too large. Please choose a smaller photo.", "error");
+      return;
+    }
+    setPhotoUploadError(null);
+    setPhotoUploadInfo(`Optimized to ${(finalFile.size / 1024).toFixed(0)}KB.`);
+    setFoundPetPhotos((prev) => [...prev, finalFile]);
     if (foundPetPhotos.length === 0) setFoundPrimaryPhotoIndex(0);
     setFoundPetDetection(null);
+  };
+
+  const compressPhotosNow = async (type) => {
+    const targetBytes = Math.max(50, Number(compressTargetKb) || 200) * 1024;
+    const photos = type === "lost" ? lostPetPhotos : foundPetPhotos;
+    if (!photos.length) {
+      showNotification("Add a photo first.", "info");
+      return;
+    }
+    setCompressing(true);
+    setPhotoUploadError(null);
+    try {
+      showNotification(`Compressing to ~${Math.round(targetBytes / 1024)}KB…`, "info");
+      const optimized = await Promise.all(photos.map((f) => ensureOptimizedPhoto(f, targetBytes)));
+      if (type === "lost") setLostPetPhotos(optimized);
+      else setFoundPetPhotos(optimized);
+      const maxKb = Math.max(...optimized.map((f) => (f instanceof File ? f.size : 0))) / 1024;
+      setPhotoUploadInfo(`Compressed. Largest photo: ${Math.round(maxKb)}KB (target ${Math.round(targetBytes / 1024)}KB).`);
+    } catch (e) {
+      console.error("Compression failed", e);
+      setPhotoUploadError("Compression failed. Try a different photo.");
+    } finally {
+      setCompressing(false);
+    }
   };
   const removeFoundPhoto = (index) => {
     setFoundPetPhotos((prev) => prev.filter((_, i) => i !== index));
@@ -304,6 +634,11 @@ export default function ReportPage() {
             Help reunite pets with their families
           </p>
         </div>
+        {draftRestored && (
+          <div className="mb-6 p-4 bg-amber-50 text-amber-800 rounded-lg text-center border border-amber-200">
+            ✨ Draft restored. Your previous inputs were recovered (photos need to be re-added).
+          </div>
+        )}
         {isLoading && (
           <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-lg text-center">
             🔄 Loading AI model...
@@ -377,10 +712,45 @@ export default function ReportPage() {
                 <div>
                   <p className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</p>
                   <p className="text-sm text-gray-500 mb-2">Photo gallery (max {MAX_PHOTOS}). First primary photo is used for AI.</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-600">Compression target</span>
+                      <input
+                        type="number"
+                        min={50}
+                        max={800}
+                        value={compressTargetKb}
+                        onChange={(e) => setCompressTargetKb(e.target.value)}
+                        className="w-24 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-800 text-sm"
+                      />
+                      <span className="text-xs text-gray-500">KB</span>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={compressing || lostPetPhotos.length === 0}
+                      onClick={() => compressPhotosNow("lost")}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50"
+                    >
+                      {compressing ? "Compressing…" : "Compress now"}
+                    </button>
+                  </div>
+                  {photoUploadInfo && (
+                    <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      {photoUploadInfo}
+                    </div>
+                  )}
+                  {photoUploadError && (
+                    <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {photoUploadError}
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                     {lostPetPhotos.map((file, idx) => (
                       <div key={idx} className="relative">
                         <img src={URL.createObjectURL(file)} alt="" className="w-full h-24 object-cover rounded-lg bg-gray-100" />
+                        <span className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                          {(file.size / 1024).toFixed(0)}KB
+                        </span>
                         {lostPrimaryPhotoIndex === idx ? (
                           <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">Primary</span>
                         ) : (
@@ -809,10 +1179,45 @@ export default function ReportPage() {
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Upload Pet Photo 📸</label>
               <p className="text-sm text-gray-500 mb-2">Photo gallery (max {MAX_PHOTOS}). First primary photo is used for AI.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-600">Compression target</span>
+                  <input
+                    type="number"
+                    min={50}
+                    max={800}
+                    value={compressTargetKb}
+                    onChange={(e) => setCompressTargetKb(e.target.value)}
+                    className="w-24 px-3 py-2 rounded-lg border border-gray-200 bg-white text-gray-800 text-sm"
+                  />
+                  <span className="text-xs text-gray-500">KB</span>
+                </div>
+                <button
+                  type="button"
+                  disabled={compressing || foundPetPhotos.length === 0}
+                  onClick={() => compressPhotosNow("found")}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-stone-900 text-white hover:bg-stone-800 disabled:opacity-50"
+                >
+                  {compressing ? "Compressing…" : "Compress now"}
+                </button>
+              </div>
+              {photoUploadInfo && (
+                <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {photoUploadInfo}
+                </div>
+              )}
+              {photoUploadError && (
+                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {photoUploadError}
+                </div>
+              )}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                 {foundPetPhotos.map((file, idx) => (
                   <div key={idx} className="relative">
                     <img src={URL.createObjectURL(file)} alt="" className="w-full h-24 object-cover rounded-lg bg-gray-100" />
+                    <span className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                      {(file.size / 1024).toFixed(0)}KB
+                    </span>
                     {foundPrimaryPhotoIndex === idx ? (
                       <span className="absolute bottom-1 left-1 bg-orange-600 text-white text-[10px] px-2 py-0.5 rounded-full">Primary</span>
                     ) : (

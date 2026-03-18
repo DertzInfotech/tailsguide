@@ -136,18 +136,22 @@ body {
 
 @layer components {
   .nav-link {
-    color: var(--foreground);
-    font-weight: 500;
+    color: rgba(28, 25, 23, 0.78);
+    font-weight: 600;
     font-size: 0.875rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 9999px;
     white-space: nowrap;
+    letter-spacing: 0.01em;
+    background: transparent;
+    border: 1px solid transparent;
   }
 
   .nav-link:hover,
   .nav-link.active {
-    color: var(--accent-main);
-    background-color: rgba(255, 154, 0, 0.15);
+    color: rgb(180 83 9); /* amber-700 */
+    background-color: rgba(255, 255, 255, 0.65);
+    border-color: rgba(251, 191, 36, 0.35);
   }
 }
 
@@ -259,27 +263,37 @@ header>nav {
 .nav-link {
   position: relative;
   display: inline-block;
-  transition: transform 0.25s ease, color 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    color 0.25s ease,
+    background-color 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
 }
 
 .nav-link:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px -18px rgba(17, 24, 39, 0.45);
 }
 
 .nav-link::after {
   content: "";
   position: absolute;
-  left: 0;
-  bottom: -6px;
-  width: 0%;
-  height: 2px;
-  background: currentColor;
-  transition: width 0.3s ease;
+  left: 14px;
+  right: 14px;
+  bottom: -8px;
+  height: 3px;
+  border-radius: 9999px;
+  opacity: 0;
+  transform: scaleX(0.6);
+  background: linear-gradient(90deg, rgba(249,115,22,0.0), rgba(249,115,22,0.95), rgba(245,158,11,0.95), rgba(249,115,22,0.0));
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
 .nav-link:hover::after,
 .nav-link.active::after {
-  width: 100%;
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .nav-link.active {

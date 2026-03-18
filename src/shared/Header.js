@@ -34,6 +34,15 @@ export default function Header() {
     };
   }, [profileDropdownOpen]);
 
+  useEffect(() => {
+    if (!profileDropdownOpen) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setProfileDropdownOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [profileDropdownOpen]);
+
   const handleLogout = () => {
     logout();
     router.push('/');
@@ -49,9 +58,10 @@ export default function Header() {
       {/* HEADER */}
       <header
         className="
-          sticky top-0 z-30 relative isolate
-          bg-[#f6f1eb]/85 backdrop-blur-md
-          border-b border-[#c8b4a0]/30 border-opacity-35
+          sticky top-0 z-30 isolate
+          bg-[#f8f4ee]/70 backdrop-blur-xl
+          border-b border-white/50
+          shadow-[0_12px_40px_-32px_rgba(17,24,39,0.45)]
           animate-header-in
         "
       >
@@ -62,7 +72,12 @@ export default function Header() {
             <i className="text-[28px]">
               <FontAwesomeIcon icon={faPaw} />
             </i>
-            <span>tailsGuide</span>
+            <span className="inline-flex items-center gap-2">
+              <span>tailsGuide</span>
+              <span className="inline-flex items-center rounded-full border border-orange-200 bg-white/70 px-2 py-0.5 text-[10px] font-extrabold tracking-[0.22em] text-orange-700 shadow-sm">
+                BETA
+              </span>
+            </span>
           </div>
 
           {/* Desktop Nav */}
@@ -73,6 +88,7 @@ export default function Header() {
             <Link href="/shelters" className={pathname === "/shelters" ? "nav-link active" : "nav-link"}>Shelters</Link>
             <Link href="/community" className={pathname === "/community" ? "nav-link active" : "nav-link"}>Community</Link>
             <Link href="/resources" className={pathname === "/resources" ? "nav-link active" : "nav-link"}>Resources</Link>
+            <Link href="/contact" className={pathname === "/contact" ? "nav-link active" : "nav-link"}>Contact</Link>
 
             {isAuthenticated ? (
               <div className="relative" ref={dropdownRef}>
