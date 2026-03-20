@@ -2,9 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { getPetById, postPetScan } from '@/api/petApi';
+import { getPetById, getAllPets, postPetScan } from '@/api/petApi';
 
 const getThumbnailUrl = (petId) => `/api/v1/pet/${petId}/thumbnail`;
+const getPetImageUrl = (pet) => {
+  if (!pet) return "/dog-default.png";
+  if (typeof pet.thumbnailUrl === "string" && pet.thumbnailUrl.trim()) {
+    if (pet.thumbnailUrl.startsWith("http")) return pet.thumbnailUrl;
+    const path = pet.thumbnailUrl.startsWith("/") ? pet.thumbnailUrl : `/${pet.thumbnailUrl}`;
+    return `/api/v1${path}`;
+  }
+  if (pet.id != null) return getThumbnailUrl(pet.id);
+  return "/dog-default.png";
+};
 
 /* ---------------- PAGE ---------------- */
 export default function ScanPetPage() {
@@ -27,17 +37,33 @@ export default function ScanPetPage() {
       return;
     }
     let cancelled = false;
-    getPetById(id)
-      .then((res) => {
-        if (!cancelled) setPet(res.data);
-      })
-      .catch((err) => {
-        console.error(err);
-        if (!cancelled) setPetError('Could not load pet details.');
-      })
-      .finally(() => {
+    const loadPet = async () => {
+      try {
+        // Primary path
+        const res = await getPetById(id);
+        const data = res?.data;
+        const found = Array.isArray(data) ? data[0] : data?.data || data;
+        if (!cancelled) setPet(found || null);
+      } catch (err) {
+        // Public fallback for shared scan links (logged-out users)
+        try {
+          const allRes = await getAllPets();
+          const raw = allRes?.data;
+          const list = Array.isArray(raw) ? raw : raw?.content ?? raw?.data ?? [];
+          const found = list.find((p) => String(p?.id) === String(id)) || null;
+          if (!cancelled) {
+            setPet(found);
+            if (!found) setPetError('Could not load pet details.');
+          }
+        } catch (fallbackErr) {
+          console.error(fallbackErr || err);
+          if (!cancelled) setPetError('Could not load pet details.');
+        }
+      } finally {
         if (!cancelled) setPetLoading(false);
-      });
+      }
+    };
+    loadPet();
     return () => { cancelled = true; };
   }, [id]);
 
@@ -107,6 +133,8 @@ export default function ScanPetPage() {
     }
   };
 
+  const petImageUrl = getPetImageUrl(pet);
+
   /* -------- LOADING / ERROR -------- */
   if (petLoading) {
     return (
@@ -153,7 +181,7 @@ export default function ScanPetPage() {
       <div style={styles.card}>
         {/* -------- PET INFO (from API) -------- */}
         <img
-          src={getThumbnailUrl(pet.id)}
+          src={petImageUrl}
           alt={pet.petName || 'Pet'}
           style={styles.image}
           onError={(e) => { e.target.src = '/dog-default.png'; }}
