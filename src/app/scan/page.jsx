@@ -3,8 +3,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 
-const VALID_QR_REGEX = /\/pet\/\d+\/scan$/;
 const RESUME_DELAY = 1800;
+
+function extractPetIdFromQr(decodedText) {
+  if (!decodedText || typeof decodedText !== "string") return null;
+  const text = decodedText.trim();
+
+  // 1) /pet/{id}/scan (with optional query/hash/trailing slash)
+  let m = text.match(/\/pet\/(\d+)\/scan(?:[/?#].*)?$/i);
+  if (m?.[1]) return m[1];
+
+  // 2) /pet/{id} (fallback pattern)
+  m = text.match(/\/pet\/(\d+)(?:[/?#].*)?$/i);
+  if (m?.[1]) return m[1];
+
+  // 3) Query-style ids: ?petId=72 or ?id=72
+  m = text.match(/[?&](?:petId|id)=(\d+)/i);
+  if (m?.[1]) return m[1];
+
+  // 4) Bare numeric text
+  if (/^\d+$/.test(text)) return text;
+
+  return null;
+}
 
 export default function ScanQRPage() {
   const scannerRef = useRef(null);
@@ -62,10 +83,8 @@ export default function ScanQRPage() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: 260 },
         async (decodedText) => {
-          // Try to extract /pet/{id}/scan from any URL/text
-          const match = decodedText.match(/\/pet\/(\d+)\/scan/);
-
-          if (!match) {
+          const petId = extractPetIdFromQr(decodedText);
+          if (!petId) {
             vibrate([60, 40, 60]);
             beep();
             setError('Invalid QR code. Please scan a TailsGuide pet QR.');
@@ -73,8 +92,6 @@ export default function ScanQRPage() {
             setTimeout(startScanner, RESUME_DELAY);
             return;
           }
-
-          const petId = match[1];
 
           // SUCCESS – always redirect to current origin so localhost/dev links in QR still work
           vibrate([120]);
