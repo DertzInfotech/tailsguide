@@ -6,6 +6,7 @@ import { useObjectDetection, MIN_CONFIDENCE_FOR_AUTOFILL } from "../../utils/use
 import Input from "@/shared/Input";
 import Notification from "@/shared/Notification";
 import { submitReport } from "@/lib/api-client";
+import { invalidatePetsCache, saveLocalReport } from "@/data/dummyPets";
 
 const MAX_PHOTOS = 5;
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // UI hard limit per photo (safety)
@@ -439,6 +440,20 @@ export default function ReportPage() {
       redirect: "follow"
     };
 
+    const localSnapshot = {
+      petName:
+        (reportType === "lost" ? petName : petName) ||
+        "Unknown pet",
+      breed: breed || "",
+      reportType: reportType.toUpperCase(),
+      lastSeenLocation: lastLocation || "",
+      lastSeenDate: lastSeenDate || new Date().toISOString().slice(0, 10),
+      primaryColor: primaryColor || "",
+      thumbnailUrl: "/dog-default.svg",
+    };
+    // Optimistic: show on dashboard even if Vercel→backend is slow/empty
+    saveLocalReport(localSnapshot);
+
     try {
 
       const result = await submitReport(requestOptions);
@@ -447,10 +462,22 @@ export default function ReportPage() {
         console.log("report submitted")
         showNotification(`${reportType === 'lost' ? 'Lost' : 'Found'} pet report submitted successfully!`, 'success');
         try { localStorage.removeItem(DRAFT_KEY); } catch {}
+        const apiPet = result?.result?.id ? result.result : null;
+        if (apiPet?.id) {
+          saveLocalReport({
+            ...localSnapshot,
+            ...apiPet,
+            id: apiPet.id,
+            thumbnailUrl: "/dog-default.svg",
+          });
+        }
+        invalidatePetsCache();
         setTimeout(() => {
           router.push('/');
-        }, 2000)
+        }, 800)
       } else {
+        // Keep optimistic local report so dashboard still shows what they submitted
+        invalidatePetsCache();
         const ve = result?.result?.validationErrors ?? result?.result?.error ?? result?.result?.message;
         const msg =
           typeof ve === "string"

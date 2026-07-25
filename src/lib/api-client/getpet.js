@@ -1,37 +1,54 @@
-import { useEffect, useState } from "react";
-import api from "./index";
+import { useCallback, useEffect, useState } from "react";
+import { DUMMY_PETS, mergePets, PETS_INVALIDATE_EVENT } from "@/data/dummyPets";
 
 export function usePets(page = 0) {
-  const [pets, setPets] = useState([]);
+  const [pets, setPets] = useState(DUMMY_PETS);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchPets() {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/v1/pet/all?page=0&size=10&sortBy=lastSeenDate&sortDirection=desc`
-        );
-        const json = await res.json();
+  const fetchPets = useCallback(async () => {
+    setPets(mergePets([]));
 
-        if (res.ok) {
-          const raw = Array.isArray(json.content) ? json.content : [];
-          const seen = new Set();
-          const deduped = raw.filter((p) => p?.id != null && !seen.has(p.id) && seen.add(p.id));
-          setPets(deduped);
-          setCurrentPage(json.number + 1);
-          setTotalPages(Math.ceil(json.totalElements / 5));
-        }
-      } catch (err) {
+    try {
+      const res = await fetch("/api/community-pets", {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
+      const json = await res.json();
+      const raw = Array.isArray(json?.content) ? json.content : [];
+      setPets(mergePets(raw));
+      setCurrentPage((json?.number ?? 0) + 1);
+      setTotalPages(Math.max(1, Math.ceil((json?.totalElements || 0) / 5)));
+    } catch (err) {
+      if (err?.name !== "TimeoutError" && err?.name !== "AbortError") {
         console.error("Error fetching pets:", err);
       }
-      setLoading(false);
+      setPets(mergePets([]));
     }
+  }, []);
 
+  useEffect(() => {
     fetchPets();
-  }, [page]);
 
-  return { pets, currentPage, totalPages, loading };
+    const onInvalidate = () => fetchPets();
+    const poll = setInterval(fetchPets, 30000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") fetchPets();
+    };
+
+    window.addEventListener(PETS_INVALIDATE_EVENT, onInvalidate);
+    window.addEventListener("focus", onInvalidate);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener(PETS_INVALIDATE_EVENT, onInvalidate);
+      window.removeEventListener("focus", onInvalidate);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [page, fetchPets]);
+
+  return { pets, currentPage, totalPages, loading, refetch: fetchPets };
 }

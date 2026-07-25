@@ -7,6 +7,12 @@ import Link from 'next/link';
 import { getSearchPets, getPetMatches, getMyPets } from '@/api/petApi';
 import PetCard from '@/features/pets/PetCard';
 import { useAuth } from '@/context/AuthContext';
+import { mergePets, PETS_INVALIDATE_EVENT } from '@/data/dummyPets';
+
+function petThumb(pet) {
+  if ((pet?.isDummy || pet?.isLocal) && pet?.thumbnailUrl) return pet.thumbnailUrl;
+  return `/api/v1/pet/${pet.id}/thumbnail`;
+}
 
 const MapContainer = dynamic(
   () => import('react-leaflet').then((m) => m.MapContainer),
@@ -260,21 +266,28 @@ export default function SearchPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
+      setAllPets(mergePets([]));
+      setLoading(false);
       try {
-        const res = await getSearchPets(0, 100);
-        if (!cancelled && res?.data?.content) {
-          setAllPets(res.data.content);
-        }
+        const res = await fetch("/api/community-pets", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(5000),
+        });
+        const json = await res.json();
+        const raw = Array.isArray(json?.content) ? json.content : [];
+        if (!cancelled) setAllPets(mergePets(raw));
       } catch (err) {
-        if (!cancelled) setAllPets([]);
+        if (!cancelled) setAllPets(mergePets([]));
         console.error(err);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    const onInvalidate = () => load();
+    window.addEventListener(PETS_INVALIDATE_EVENT, onInvalidate);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(PETS_INVALIDATE_EVENT, onInvalidate);
+    };
   }, []);
 
   const loadMyLostPets = async () => {
@@ -747,8 +760,8 @@ export default function SearchPage() {
                           <PetCard
                             key={pet.id}
                             pet={pet}
-                            imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
-                            hideFlyerAndSighting={false}
+                            imageUrl={petThumb(pet)}
+                            hideFlyerAndSighting={!!pet.isDummy || !!pet.isLocal}
                             showShare
                             cardSize="large"
                           />
@@ -763,8 +776,8 @@ export default function SearchPage() {
                     <PetCard
                       key={pet.id}
                       pet={pet}
-                      imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
-                      hideFlyerAndSighting={false}
+                      imageUrl={petThumb(pet)}
+                      hideFlyerAndSighting={!!pet.isDummy || !!pet.isLocal}
                       showShare
                       cardSize="large"
                     />
@@ -798,8 +811,8 @@ export default function SearchPage() {
                   <PetCard
                     key={pet.id}
                     pet={pet}
-                    imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
-                    hideFlyerAndSighting={false}
+                    imageUrl={petThumb(pet)}
+                    hideFlyerAndSighting={!!pet.isDummy || !!pet.isLocal}
                     showShare
                     cardSize="large"
                   />
