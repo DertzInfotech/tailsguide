@@ -74,13 +74,23 @@ export const postPetScan = (petId, data) =>
 export const deletePet = (id) =>
   api.delete(`/pet/${id}`);
 
-/** Update pet (e.g. mark as found) - partial update */
-export const updatePet = (id, updates) =>
-  api.patch(`/pet/${id}`, updates);
+/** Update pet fields via report endpoint (backend has no PATCH /pet/{id}). */
+export const updatePet = (id, updates = {}) =>
+  reportPet({ ...updates, id: Number(id) }, null, []);
 
-/** Mark pet as found (sets reportType to FOUND) */
-export const markPetFound = (petId) =>
-  api.patch(`/pet/${petId}`, { reportType: "FOUND" });
+/** Mark pet as found — pass current pet fields when available. */
+export const markPetFound = (petId, pet = {}) =>
+  reportPet(
+    {
+      ...pet,
+      id: Number(petId),
+      reportType: "FOUND",
+      ownerEmail: pet.ownerEmail,
+      ownerPhone: pet.ownerPhone,
+    },
+    null,
+    []
+  );
 
 /** Delete a single media item (photo) by mediaId */
 export const deletePetMedia = (mediaId) =>

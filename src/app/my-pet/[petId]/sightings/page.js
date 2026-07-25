@@ -85,7 +85,7 @@ export default function PetSightingsPage() {
     setMarkFoundMessage(null);
     setMarkingFound(true);
     try {
-      await markPetFound(petId);
+      await markPetFound(petId, pet);
       setPet((prev) => (prev ? { ...prev, reportType: "FOUND" } : null));
       setMarkFoundMessage("Pet has been marked as found.");
     } catch (err) {

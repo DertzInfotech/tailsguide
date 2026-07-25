@@ -458,18 +458,18 @@ export default function EditPetProfile() {
         primaryColor,
         distinctiveFeatures,
         reportType,
-        lastSeenLocation,
-        lastSeenDate,
-        lastSeenTime,
-        circumstances,
+        lastSeenLocation: lastSeenLocation || null,
+        lastSeenDate: reportType === "REGISTERED" ? null : lastSeenDate || null,
+        lastSeenTime: reportType === "REGISTERED" ? null : lastSeenTime || null,
+        circumstances: circumstances || null,
         ownerName,
         ownerPhone,
         ownerEmail,
-        emergencyContact,
-        microchipId,
-        veterinarian,
-        medicalConditions,
-        specialInstructions,
+        emergencyContact: emergencyContact || null,
+        microchipId: microchipId || null,
+        veterinarian: veterinarian || null,
+        medicalConditions: medicalConditions || null,
+        specialInstructions: specialInstructions || null,
         // Tell backend which existing media to keep (avoids "orphan deletion" error when updating)
         existingMediaIds: existingMedia.map((m) => m.id),
       };
@@ -502,10 +502,14 @@ export default function EditPetProfile() {
       } else {
         const r = result.result || {};
         const msg =
-          r.businessErrorDescription || r.validationErrors || r.message || "Failed to save profile";
+          r.businessErrorDescription ||
+          r.error ||
+          r.validationErrors ||
+          r.message ||
+          "Failed to save profile";
         setToast({
           type: "error",
-          text: typeof msg === "string" ? msg : JSON.stringify(msg),
+          text: typeof msg === "string" ? msg : Array.isArray(msg) ? msg.join(", ") : JSON.stringify(msg),
         });
       }
     } catch (err) {
@@ -526,7 +530,13 @@ export default function EditPetProfile() {
   }
 
   /* ---------- UI ---------- */
-  const steps = ["Pet Details", "Location & Date", "Contact Info", "Medical Info"];
+  const isRegistered = reportType === "REGISTERED";
+  const steps = [
+    "Pet Details",
+    isRegistered ? "Home & Notes" : "Location & Date",
+    "Contact Info",
+    "Medical Info",
+  ];
   return (
     <div className="min-h-screen relative overflow-hidden">
       {/* Unique background: soft gradient + dot pattern */}
@@ -778,7 +788,27 @@ export default function EditPetProfile() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input label="Enter pet's name" value={petName} set={setPetName} />
-              <Select label="Report Type" value={reportType} set={setReportType} options={["LOST", "FOUND"]} placeholder="Select type" />
+              <div className="space-y-2">
+                <Select
+                  label="Pet status"
+                  value={reportType}
+                  set={setReportType}
+                  options={[
+                    { value: "REGISTERED", label: "REGISTERED — just my pet (no lost/found report)" },
+                    { value: "LOST", label: "LOST — my pet is missing" },
+                    { value: "FOUND", label: "FOUND — I found a pet" },
+                  ]}
+                  placeholder="Select status"
+                />
+                <p className="text-xs text-stone-500 px-1">
+                  {reportType === "REGISTERED" &&
+                    "Save this pet under your profile only. No lost or found alert will be posted."}
+                  {reportType === "LOST" &&
+                    "Marks this pet as missing so the community can help."}
+                  {reportType === "FOUND" &&
+                    "Marks this as a found pet report for owners to see."}
+                </p>
+              </div>
               <Select label="Pet Type" value={petType} set={setPetType} options={["Dog", "Cat", "Bird", "Other"]} placeholder="Select type" />
               <Input label="Enter pet's breed" value={breed} set={setBreed} />
               <Select
@@ -798,31 +828,58 @@ export default function EditPetProfile() {
           </div>
         )}
 
-        {/* Step 1: Location & Date */}
+        {/* Step 1: Location & Date (or Home & Notes for registered pets) */}
         {currentStep === 1 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-stone-800 mb-4">Location & Date</h2>
+            <h2 className="text-xl font-bold text-stone-800 mb-4">
+              {isRegistered ? "Home & Notes" : "Location & Date"}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Input
-                label={reportType === "FOUND" ? "Where was the pet found?" : "Last seen location"}
+                label={
+                  isRegistered
+                    ? "Home / usual area (optional)"
+                    : reportType === "FOUND"
+                    ? "Where was the pet found?"
+                    : "Last seen location"
+                }
                 value={lastSeenLocation}
                 set={setLastSeenLocation}
               />
-              <Input
-                type="date"
-                label={reportType === "FOUND" ? "Date found" : "Last seen date"}
-                value={lastSeenDate}
-                set={setLastSeenDate}
-              />
-              <Input
-                type="time"
-                label={reportType === "FOUND" ? "Time found (optional)" : "Last seen time"}
-                value={lastSeenTime}
-                set={setLastSeenTime}
-              />
+              {!isRegistered && (
+                <>
+                  <Input
+                    type="date"
+                    label={reportType === "FOUND" ? "Date found" : "Last seen date"}
+                    value={lastSeenDate}
+                    set={setLastSeenDate}
+                  />
+                  <Input
+                    type="time"
+                    label={reportType === "FOUND" ? "Time found (optional)" : "Last seen time"}
+                    value={lastSeenTime}
+                    set={setLastSeenTime}
+                  />
+                </>
+              )}
               {reportType === "LOST" && (
                 <div className="md:col-span-2">
-                  <Textarea label="Circumstances" value={circumstances} set={setCircumstances} placeholder="How did your pet go missing? What were they doing?" />
+                  <Textarea
+                    label="Circumstances"
+                    value={circumstances}
+                    set={setCircumstances}
+                    placeholder="How did your pet go missing? What were they doing?"
+                  />
+                </div>
+              )}
+              {isRegistered && (
+                <div className="md:col-span-2">
+                  <Textarea
+                    label="Notes about your pet (optional)"
+                    value={circumstances}
+                    set={setCircumstances}
+                    placeholder="Temperament, favorite toys, anything helpful for you to keep on file."
+                  />
                 </div>
               )}
             </div>
@@ -838,27 +895,34 @@ export default function EditPetProfile() {
               <Input label="Contact Number" value={ownerPhone} set={setOwnerPhone} />
               <Input label="Contact Email" value={ownerEmail} set={setOwnerEmail} />
               <Input label="Emergency Number" value={emergencyContact} set={setEmergencyContact} />
-              <div className="md:col-span-2 mt-4">
-                <h4 className="text-lg font-semibold mb-4 text-stone-700">Alert Preferences</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
-                    <input type="checkbox" checked={isSMSChecked} onChange={(e) => setIsSMSChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
-                    SMS Alert
-                  </label>
-                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
-                    <input type="checkbox" checked={isEmailChecked} onChange={(e) => setIsEmailChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
-                    Email Notification
-                  </label>
-                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
-                    <input type="checkbox" checked={isSocialChecked} onChange={(e) => setIsSocialChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
-                    Social Media Sharing
-                  </label>
-                  <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
-                    <input type="checkbox" checked={isWPChecked} onChange={(e) => setIsWPChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
-                    Community WhatsApp Groups
-                  </label>
+              {!isRegistered && (
+                <div className="md:col-span-2 mt-4">
+                  <h4 className="text-lg font-semibold mb-4 text-stone-700">Alert Preferences</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                      <input type="checkbox" checked={isSMSChecked} onChange={(e) => setIsSMSChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
+                      SMS Alert
+                    </label>
+                    <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                      <input type="checkbox" checked={isEmailChecked} onChange={(e) => setIsEmailChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
+                      Email Notification
+                    </label>
+                    <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                      <input type="checkbox" checked={isSocialChecked} onChange={(e) => setIsSocialChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
+                      Social Media Sharing
+                    </label>
+                    <label className="bg-amber-50/60 border border-amber-100 p-3 rounded-xl flex items-center gap-2 cursor-pointer hover:bg-amber-50 transition">
+                      <input type="checkbox" checked={isWPChecked} onChange={(e) => setIsWPChecked(e.target.checked)} className="h-4 w-4 rounded text-amber-500" />
+                      Community WhatsApp Groups
+                    </label>
+                  </div>
                 </div>
-              </div>
+              )}
+              {isRegistered && (
+                <p className="md:col-span-2 text-sm text-stone-500">
+                  These contacts are saved on your pet’s profile for QR scans and emergencies — not as a public lost/found alert.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -943,9 +1007,15 @@ function Select({ label, value, set, options, placeholder = "Not Applicable" }) 
         className="w-full px-4 pt-6 pb-2 rounded-xl border border-stone-200 bg-white/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition"
       >
         <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
+        {options.map((o) => {
+          const optValue = typeof o === "string" ? o : o.value;
+          const optLabel = typeof o === "string" ? o : o.label;
+          return (
+            <option key={optValue} value={optValue}>
+              {optLabel}
+            </option>
+          );
+        })}
       </select>
       <label className="absolute left-4 top-2 text-xs text-stone-500">{label}</label>
     </div>
