@@ -1,7 +1,6 @@
 /**
- * Proxy POST /api/v1/pet/report to the backend and forward the Authorization header.
- * Next.js rewrites do not guarantee forwarding of headers (e.g. Bearer token) to the
- * destination, so this route ensures the backend receives the token for "register a pet".
+ * Proxy POST /api/v1/pet/report to the backend and forward Authorization only.
+ * Never forward Origin/Referer — backend CORS rejects tailsguide.com.
  */
 const BACKEND_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://144.126.252.50:8084";
 
@@ -11,12 +10,9 @@ export async function POST(request) {
     const contentType = request.headers.get("content-type") || "";
 
     const url = `${BACKEND_BASE}/api/v1/pet/report`;
-    const headers = {
-      ...(authHeader && { Authorization: authHeader }),
-    };
-    if (contentType) {
-      headers["Content-Type"] = contentType;
-    }
+    const headers = {};
+    if (authHeader) headers.Authorization = authHeader;
+    if (contentType) headers["Content-Type"] = contentType;
 
     const body = await request.arrayBuffer();
     const res = await fetch(url, {
@@ -30,7 +26,7 @@ export async function POST(request) {
     try {
       data = text ? JSON.parse(text) : {};
     } catch {
-      data = { message: text };
+      data = { message: text || res.statusText };
     }
 
     return Response.json(data, { status: res.status });
