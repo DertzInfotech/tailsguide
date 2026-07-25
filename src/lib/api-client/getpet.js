@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { DUMMY_PETS, mergePets, PETS_INVALIDATE_EVENT } from "@/data/dummyPets";
+import { mergePets, PETS_INVALIDATE_EVENT } from "@/data/dummyPets";
 
 export function usePets(page = 0) {
-  const [pets, setPets] = useState(DUMMY_PETS);
+  const [pets, setPets] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchPets = useCallback(async () => {
     setPets(mergePets([]));
+    setLoading(false);
 
     try {
       const res = await fetch("/api/community-pets", {
