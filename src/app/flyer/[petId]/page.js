@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import PdfViewer from "@/components/PdfViewer";
 
 export default function FlyerViewerPage() {
   const { petId } = useParams();
   const [blobUrl, setBlobUrl] = useState(null);
   const [error, setError] = useState(null);
-  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const blobUrlRef = useRef(null);
 
   useEffect(() => {
@@ -19,10 +20,14 @@ export default function FlyerViewerPage() {
         if (!res.ok) throw new Error("Failed to load flyer");
         const blob = await res.blob();
         if (revoked) return;
-        const url = URL.createObjectURL(blob);
+        const pdfBlob =
+          blob.type === "application/pdf"
+            ? blob
+            : new Blob([blob], { type: "application/pdf" });
+        const url = URL.createObjectURL(pdfBlob);
         blobUrlRef.current = url;
         setBlobUrl(url);
-      } catch (e) {
+      } catch {
         if (!revoked) setError("Could not load flyer.");
       }
     };
@@ -36,27 +41,24 @@ export default function FlyerViewerPage() {
     };
   }, [petId]);
 
-  useEffect(() => {
-    if (!blobUrl) return;
-    const t = setTimeout(() => setShowDownloadModal(true), 1000);
-    return () => clearTimeout(t);
-  }, [blobUrl]);
-
   const handleDownload = () => {
     if (!blobUrl) return;
     const a = document.createElement("a");
     a.href = blobUrl;
     a.download = `flyer-pet-${petId}.pdf`;
+    a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setShowDownloadModal(false);
   };
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-100 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-100 p-4 gap-4">
         <p className="text-red-600 font-medium">{error}</p>
+        <Link href="/" className="text-orange-600 font-semibold">
+          ← Back to dashboard
+        </Link>
       </div>
     );
   }
@@ -70,35 +72,22 @@ export default function FlyerViewerPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-stone-200">
-      <iframe
-        src={blobUrl}
-        title="Flyer"
-        className="flex-1 w-full min-h-[80vh] border-0"
-      />
-      {showDownloadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowDownloadModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full border border-amber-100" onClick={(e) => e.stopPropagation()}>
-            <p className="text-gray-800 font-semibold mb-4">Would you like to download this flyer?</p>
-            <div className="flex gap-3 justify-end">
-              <button
-                type="button"
-                onClick={() => setShowDownloadModal(false)}
-                className="px-4 py-2 rounded-xl border border-stone-200 text-stone-700 font-medium hover:bg-stone-50"
-              >
-                No thanks
-              </button>
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="px-4 py-2 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600"
-              >
-                Download
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen flex flex-col bg-stone-100">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 bg-white/95 backdrop-blur border-b border-stone-200">
+        <Link href="/" className="text-orange-600 font-semibold text-sm">
+          ← Back
+        </Link>
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="min-h-[44px] px-4 rounded-xl bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
+        >
+          Download PDF
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+        <PdfViewer url={blobUrl} className="max-w-3xl mx-auto" />
+      </div>
     </div>
   );
 }
