@@ -34,13 +34,15 @@ export default function PdfViewer({ url, className = "" }) {
         if (!container) return;
 
         container.innerHTML = "";
-        const scale = 1.5;
         const padding = 16;
+        const maxWidth = Math.max(280, container.clientWidth || window.innerWidth - 32);
 
         for (let i = 1; i <= numPages; i++) {
           if (cancelled) return;
           const page = await doc.getPage(i);
           if (cancelled) return;
+          const base = page.getViewport({ scale: 1 });
+          const scale = Math.min(1.75, maxWidth / base.width);
           const viewport = page.getViewport({ scale });
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
@@ -48,7 +50,7 @@ export default function PdfViewer({ url, className = "" }) {
           canvas.width = viewport.width;
           canvas.style.display = "block";
           canvas.style.marginBottom = `${padding}px`;
-          canvas.style.maxWidth = "100%";
+          canvas.style.width = "100%";
           canvas.style.height = "auto";
           canvas.style.boxShadow = "0 1px 3px rgba(0,0,0,0.12)";
           canvas.style.borderRadius = "8px";

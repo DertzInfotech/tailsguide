@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import PdfViewer from "@/components/PdfViewer";
 
 function formatDateLabel(dateStr, isLost) {
   if (!dateStr) return isLost ? "Date unknown" : "Date unknown";
@@ -47,6 +49,7 @@ function SightingIcon({ className = "w-4 h-4" }) {
 }
 
 export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, showShare = false, cardSize = "normal" }) {
+  const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -206,7 +209,7 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, s
           <div className="flex flex-col items-stretch rounded-2xl border border-orange-200/80 bg-linear-to-br from-orange-50/90 to-amber-50/80 p-1.5 shadow-sm max-lg:min-w-[120px]">
             <button
               type="button"
-              onClick={() => openFlyerInNewWindow(pet.id)}
+              onClick={() => openFlyer(pet.id, router)}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 max-lg:py-2 rounded-xl text-xs font-semibold bg-orange-500 text-white hover:bg-orange-600 active:scale-[0.98] shadow-sm transition-all duration-200 ease-out whitespace-nowrap"
             >
               <FlyerIcon className="w-3.5 h-3.5 shrink-0" />
@@ -242,7 +245,18 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, s
               aria-modal="true"
               aria-label="Flyer preview"
             >
-              <div className="flex items-center justify-end p-2 shrink-0">
+              <div className="flex items-center justify-between gap-2 p-2 shrink-0">
+                {previewBlobUrl ? (
+                  <a
+                    href={previewBlobUrl}
+                    download={`flyer-pet-${pet.id}.pdf`}
+                    className="min-h-[44px] px-4 inline-flex items-center justify-center rounded-xl text-sm font-semibold bg-orange-500 text-white hover:bg-orange-600"
+                  >
+                    Download PDF
+                  </a>
+                ) : (
+                  <span />
+                )}
                 <button
                   type="button"
                   onMouseDown={(e) => e.stopPropagation()}
@@ -255,14 +269,9 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, s
                   <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <div className="flex-1 min-h-0 px-4 pb-6 -mt-2 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 px-3 sm:px-4 pb-4 overflow-y-auto overscroll-contain">
                 {previewBlobUrl ? (
-                  <iframe
-                    src={`${previewBlobUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                    title="Flyer preview"
-                    className="w-full flex-1 min-h-0 rounded-xl border-0 bg-stone-100 overflow-hidden"
-                    style={{ minHeight: "85vh" }}
-                  />
+                  <PdfViewer url={previewBlobUrl} className="w-full" />
                 ) : (
                   <p className="text-stone-500 py-12 text-center font-medium">Loading…</p>
                 )}
@@ -291,9 +300,21 @@ export default function PetCard({ pet, imageUrl, hideFlyerAndSighting = false, s
 
 /* ================= HELPERS ================= */
 
-function openFlyerInNewWindow(petId) {
-  const url = typeof window !== "undefined" ? `${window.location.origin}/flyer/${petId}` : `/flyer/${petId}`;
-  window.open(url, "_blank", "noopener,noreferrer");
+function isMobileViewport() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(max-width: 1023px)").matches || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+}
+
+function openFlyer(petId, router) {
+  const path = `/flyer/${petId}`;
+  // Mobile browsers block window.open and can't show PDF iframes reliably
+  if (isMobileViewport()) {
+    router.push(path);
+    return;
+  }
+  const url = `${window.location.origin}${path}`;
+  const win = window.open(url, "_blank", "noopener,noreferrer");
+  if (!win) router.push(path);
 }
 
 async function openPreviewInModal(url, setBlobUrl, setLoading, setOpen) {
@@ -302,8 +323,13 @@ async function openPreviewInModal(url, setBlobUrl, setLoading, setOpen) {
   setLoading(true);
   try {
     const res = await fetch(url);
+    if (!res.ok) throw new Error("Failed to load flyer");
     const blob = await res.blob();
-    const fileUrl = URL.createObjectURL(blob);
+    const pdfBlob =
+      blob.type === "application/pdf"
+        ? blob
+        : new Blob([blob], { type: "application/pdf" });
+    const fileUrl = URL.createObjectURL(pdfBlob);
     setBlobUrl(fileUrl);
   } catch {
     setOpen(false);
