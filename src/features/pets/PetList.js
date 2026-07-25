@@ -52,9 +52,13 @@ export default function PetList({
           <PetCard
             key={pet.id}
             pet={pet}
-            imageUrl={`/api/v1/pet/${pet.id}/thumbnail`}
-            hideFlyerAndSighting={hideFlyerAndSighting}
-            showShare={showShare}
+            imageUrl={
+              pet.isDummy && pet.thumbnailUrl
+                ? pet.thumbnailUrl
+                : `/api/v1/pet/${pet.id}/thumbnail`
+            }
+            hideFlyerAndSighting={hideFlyerAndSighting || !!pet.isDummy}
+            showShare={showShare && !pet.isDummy}
             cardSize={cardSize}
           />
         ))}
