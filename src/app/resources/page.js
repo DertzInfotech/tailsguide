@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import 'leaflet/dist/leaflet.css';
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faShieldAlt,
@@ -265,61 +266,6 @@ const PetClinics = ({ onBack }) => {
     );
 };
 
-const PreventionTips = ({ onBack }) => (
-    <>
-        <button onClick={onBack} className="mb-6 text-orange-600 font-semibold">
-            ← Back to Resources
-        </button>
-
-        <div className="bg-orange-50 rounded-2xl p-10 text-center mb-12">
-            <h1 className="text-3xl font-bold text-orange-600 mb-2">
-                Pet Safety & Prevention Tips
-            </h1>
-            <p className="text-gray-700">
-                Proactive steps are the best way to keep your pet safe.
-            </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-orange-600 font-bold mb-2">Secure Your Home & Yard</h3>
-                <ul className="list-disc list-inside text-gray-700">
-                    <li>Check fences and gates</li>
-                    <li>Secure window screens</li>
-                    <li>Be cautious with open doors</li>
-                </ul>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-orange-600 font-bold mb-2">Identification is Key</h3>
-                <ul className="list-disc list-inside text-gray-700">
-                    <li>Use ID tags</li>
-                    <li>Microchip your pet</li>
-                    <li>Consider GPS tracking</li>
-                </ul>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-orange-600 font-bold mb-2">Training & Leash Safety</h3>
-                <ul className="list-disc list-inside text-gray-700">
-                    <li>Train recall commands</li>
-                    <li>Always use a leash</li>
-                    <li>Check harness fit</li>
-                </ul>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow">
-                <h3 className="text-orange-600 font-bold mb-2">Be Prepared</h3>
-                <ul className="list-disc list-inside text-gray-700">
-                    <li>Keep recent photos</li>
-                    <li>Emergency contacts list</li>
-                    <li>Prepare a lost pet flyer</li>
-                </ul>
-            </div>
-        </div>
-    </>
-);
-
 /* =========================
    MAIN GRID
 ========================= */
@@ -339,10 +285,10 @@ const MainResourcesGrid = ({ onNavigate }) => (
                 <h3 className="font-bold">Pet Clinics</h3>
             </button>
 
-            <button onClick={() => onNavigate('prevention')} className="bg-white p-6 rounded-xl shadow text-center">
+            <Link href="/resources/prevention" className="bg-white p-6 rounded-xl shadow text-center block">
                 <FontAwesomeIcon icon={faLightbulb} className="text-4xl text-orange-500 mb-4" />
                 <h3 className="font-bold">Prevention Tips</h3>
-            </button>
+            </Link>
         </div>
 
         <h2 className="text-3xl font-bold text-center mb-6">Emergency Support</h2>
@@ -386,7 +332,6 @@ export default function Resources() {
             {view === 'main' && <MainResourcesGrid onNavigate={setView} />}
             {view === 'insurance' && <InsurancePartners onBack={() => setView('main')} />}
             {view === 'clinics' && <PetClinics onBack={() => setView('main')} />}
-            {view === 'prevention' && <PreventionTips onBack={() => setView('main')} />}
         </div>
     );
 }
