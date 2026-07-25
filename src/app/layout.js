@@ -25,9 +25,12 @@ export const metadata = {
     "Lost and found pets, QR tags, and community reunites — tailsGuide helps bring pets home.",
   applicationName: "tailsGuide",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: ["/icon.svg"],
-    apple: [{ url: "/icon.svg" }],
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: ["/favicon.png"],
+    apple: [{ url: "/favicon.png" }],
   },
 };
 
