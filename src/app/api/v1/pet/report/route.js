@@ -3,7 +3,7 @@
  * Next.js rewrites do not guarantee forwarding of headers (e.g. Bearer token) to the
  * destination, so this route ensures the backend receives the token for "register a pet".
  */
-const BACKEND_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://64.225.84.126:8084";
+const BACKEND_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://144.126.252.50:8084";
 
 export async function POST(request) {
   try {

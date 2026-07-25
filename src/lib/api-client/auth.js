@@ -1,7 +1,7 @@
 export async function signup( userData ) {
   try {
         const response = await fetch(
-          "https://tailsguide-production-53f0.up.railway.app/api/v1/auth/register",
+          "/api/v1/auth/register",
           {
             method: "POST",
             headers: {
@@ -23,7 +23,7 @@ export async function signup( userData ) {
 export async function signin( userData ) {
   try {
         const response = await fetch(
-          "https://tailsguide-production-53f0.up.railway.app/api/v1/auth/authenticate",
+          "/api/v1/auth/authenticate",
           {
             method: "POST",
             headers: {

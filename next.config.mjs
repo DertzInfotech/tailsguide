@@ -9,7 +9,7 @@ const nextConfig = {
       fallback: [
         {
           source: "/api/:path*",
-          destination: "http://64.225.84.126:8084/api/:path*",
+          destination: "http://144.126.252.50:8084/api/:path*",
         },
       ],
     };
