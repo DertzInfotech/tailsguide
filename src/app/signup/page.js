@@ -85,7 +85,15 @@ export default function SignUp() {
 
     } catch (error) {
       console.error(error);
-      showNotification("Signup failed. Please try again.", "error");
+      const data = error?.response?.data;
+      const ve = data?.validationErrors ?? data?.businessErrorDescription ?? data?.error ?? data?.message;
+      const msg =
+        typeof ve === "string"
+          ? ve
+          : Array.isArray(ve)
+          ? ve.join(", ")
+          : "Signup failed. Please try again.";
+      showNotification(msg, "error");
     }
   };
 
